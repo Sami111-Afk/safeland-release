@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "667659975850",
+    "project_id": "dopamintrap-be967",
+    "storage_bucket": "dopamintrap-be967.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:667659975850:android:0ce42d6c949e12607824d3",
+        "android_client_info": {
+          "package_name": "com.sol.dopaminetrap"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDpjDKW_vUB1UqR6E7kXx7lOOpkBaXpYXY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

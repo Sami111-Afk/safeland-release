@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">DopamineTrap</string>
+    <string name="accessibility_service_description">Detectează secțiunea Shorts din YouTube pentru a activa limitarea de latență. Nu citește și nu transmite niciun conținut.</string>
+</resources>

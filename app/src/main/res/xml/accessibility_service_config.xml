@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeViewSelected|typeViewClicked|typeWindowContentChanged|typeViewScrolled"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagReportViewIds"
+    android:canRetrieveWindowContent="true"
+    android:canPerformGestures="true"
+    android:description="@string/accessibility_service_description"
+    android:notificationTimeout="500"
+    android:packageNames="com.google.android.youtube,com.zhiliaoapp.musically,com.ss.android.ugc.trill,com.ss.android.ugc.aweme,com.instagram.android"
+    android:settingsActivity=".MainActivity" />
