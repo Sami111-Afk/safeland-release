@@ -54,6 +54,7 @@ class DopamineAccessibilityService : AccessibilityService() {
             tiktokActive = false
             DopamineVpnService.isTikTokForeground.set(false)
             DopamineVpnService.instance?.rebuildTunnel()
+            SessionTracker.onExit(ProtectedApp.TIKTOK, this)
             Log.d(TAG, "TikTok: BACKGROUND ◼")
         }
     }
@@ -63,6 +64,7 @@ class DopamineAccessibilityService : AccessibilityService() {
             instagramActive = false
             DopamineVpnService.isInstagramForeground.set(false)
             DopamineVpnService.instance?.rebuildTunnel()
+            SessionTracker.onExit(ProtectedApp.INSTAGRAM, this)
             Log.d(TAG, "Instagram: BACKGROUND ◼")
         }
     }
@@ -100,6 +102,8 @@ class DopamineAccessibilityService : AccessibilityService() {
                     shortsActive = isShorts
                     DopamineVpnService.isYoutubeShortsActive.set(isShorts)
                     DopamineVpnService.instance?.rebuildTunnel()
+                    if (isShorts) SessionTracker.onEnter(ProtectedApp.YOUTUBE_SHORTS)
+                    else SessionTracker.onExit(ProtectedApp.YOUTUBE_SHORTS, this)
                     Log.d(TAG, "Shorts: ${if (isShorts) "ACTIV ▶" else "INACTIV ◼"}")
                 }
             }
@@ -113,6 +117,7 @@ class DopamineAccessibilityService : AccessibilityService() {
                 tiktokActive = true
                 DopamineVpnService.isTikTokForeground.set(true)
                 DopamineVpnService.instance?.rebuildTunnel()
+                SessionTracker.onEnter(ProtectedApp.TIKTOK)
                 Log.d(TAG, "TikTok: FOREGROUND ▶")
             }
         }
@@ -123,6 +128,7 @@ class DopamineAccessibilityService : AccessibilityService() {
                 instagramActive = true
                 DopamineVpnService.isInstagramForeground.set(true)
                 DopamineVpnService.instance?.rebuildTunnel()
+                SessionTracker.onEnter(ProtectedApp.INSTAGRAM)
                 Log.d(TAG, "Instagram: FOREGROUND ▶")
             }
         }
@@ -160,6 +166,7 @@ class DopamineAccessibilityService : AccessibilityService() {
             shortsActive = false
             DopamineVpnService.isYoutubeShortsActive.set(false)
             DopamineVpnService.instance?.rebuildTunnel()
+            SessionTracker.onExit(ProtectedApp.YOUTUBE_SHORTS, this)
         }
         tiktokActive = false
         instagramActive = false

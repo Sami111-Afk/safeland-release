@@ -1,57 +1,59 @@
 package com.sol.dopaminetrap.ui.theme
 
-import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
-
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
-)
+import androidx.compose.ui.graphics.Color
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+    primary              = BrandIndigo,
+    onPrimary            = Color.White,
+    primaryContainer     = BrandIndigoContainer,
+    onPrimaryContainer   = BrandIndigoDark,
+    secondary            = BrandEmerald,
+    onSecondary          = Color.White,
+    secondaryContainer   = Color(0xFFD1FAE5),
+    onSecondaryContainer = BrandEmeraldDark,
+    background           = Color(0xFFF4F5FB),
+    onBackground         = Color(0xFF1A1A2E),
+    surface              = Color.White,
+    onSurface            = Color(0xFF1A1A2E),
+    surfaceVariant       = Color(0xFFEEEFF8),
+    onSurfaceVariant     = Color(0xFF5A5A72),
+    outline              = Color(0xFFCBCBE0),
+    error                = StatusRed,
+    onError              = Color.White,
+    errorContainer       = Color(0xFFFFEDED),
+    onErrorContainer     = Color(0xFFB71C1C)
+)
 
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+private val DarkColorScheme = darkColorScheme(
+    primary              = BrandIndigoNight,
+    onPrimary            = BrandIndigoDark,
+    primaryContainer     = BrandIndigo,
+    onPrimaryContainer   = Color.White,
+    secondary            = BrandEmerald,
+    onSecondary          = Color.White,
+    background           = BackgroundDark,
+    onBackground         = Color(0xFFE8E8FF),
+    surface              = SurfaceDark,
+    onSurface            = Color(0xFFE8E8FF),
+    surfaceVariant       = Color(0xFF252438),
+    onSurfaceVariant     = Color(0xFFAAAAAC),
+    outline              = Color(0xFF3A3A55),
+    error                = Color(0xFFFF6B6B),
+    onError              = Color.White,
+    errorContainer       = Color(0xFF4A1515),
+    onErrorContainer     = Color(0xFFFFCDD2)
 )
 
 @Composable
-fun DopamineTrapTheme(
+fun SafelandTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
         typography = Typography,
         content = content
     )

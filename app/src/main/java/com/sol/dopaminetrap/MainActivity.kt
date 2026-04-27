@@ -34,9 +34,11 @@ import androidx.work.WorkManager
 import kotlinx.coroutines.delay
 import com.sol.dopaminetrap.data.AppDatabase
 import com.sol.dopaminetrap.ml.ModelManager
+import com.sol.dopaminetrap.ui.ChildScreen
 import com.sol.dopaminetrap.ui.OnboardingScreen
 import com.sol.dopaminetrap.ui.ParentScreen
-import com.sol.dopaminetrap.ui.theme.DopamineTrapTheme
+import com.sol.dopaminetrap.ui.theme.SafelandTheme
+import com.sol.dopaminetrap.worker.DailyWellbeingWorker
 import com.sol.dopaminetrap.DopamineFcmService
 import com.sol.dopaminetrap.worker.WeeklyReportWorker
 import com.sol.dopaminetrap.FirebaseRepository
@@ -71,8 +73,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         WeeklyReportWorker.schedule(this)
+        DailyWellbeingWorker.schedule(this)
+        SessionTracker.init(this)
         setContent {
-            DopamineTrapTheme {
+            SafelandTheme {
                 var onboardingDone by remember {
                     mutableStateOf(OnboardingManager.isOnboardingDone(this@MainActivity))
                 }
@@ -88,7 +92,7 @@ class MainActivity : ComponentActivity() {
                 } else when (deviceMode) {
                     OnboardingManager.DeviceMode.CHILD -> {
                         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                            MainScreen(
+                            ChildScreen(
                                 modifier = Modifier.padding(innerPadding),
                                 onStartVpn = { checkPermissionsAndStart() },
                                 isAccessibilityEnabled = { isAccessibilityServiceEnabled() },
@@ -190,7 +194,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MainScreen(
+private fun MainScreen(
     modifier: Modifier = Modifier,
     onStartVpn: () -> Unit,
     isAccessibilityEnabled: () -> Boolean,
@@ -223,7 +227,7 @@ fun MainScreen(
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Dopamine Trap", style = MaterialTheme.typography.headlineMedium)
+        Text("Safeland", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(32.dp))
 
         // Card accesibilitate

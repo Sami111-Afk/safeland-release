@@ -471,5 +471,76 @@ enum class ContentCategory(
             "fake news", "știri false", "matrix", "simulation theory",
             "ei ne controlează", "totul e o minciună"
         )
+    ),
+
+    // ── Well-being profile ────────────────────────────────────────────────────
+
+    FERICIRE_POZITIV(
+        "Fericire & Energie pozitivă", CategoryType.INTEREST, ConcernLevel.NONE,
+        listOf(
+            "fericit", "fericită", "happy", "bucuros", "bucuroasă", "excited", "entuziasmat",
+            "amazing", "super", "minunat", "wonderful", "cel mai bun", "best day",
+            "best moment", "iubesc viața", "love life", "grateful", "recunoscător",
+            "recunoscătoare", "mulțumit", "mulțumită", "reușit", "mândru", "mândră",
+            "proud", "fericire", "happiness", "joy", "bucurie", "fain", "mișto",
+            "extraordinar", "perfectă", "perfect day"
+        )
+    ),
+    RELATII_ROMANTICE(
+        "Relații romantice", CategoryType.INTEREST, ConcernLevel.NONE,
+        listOf(
+            "crush", "iubit", "iubită", "boyfriend", "girlfriend", "îndrăgostit",
+            "îndrăgostită", "in love", "date", "sărut", "kiss", "couple", "cuplu",
+            "relație", "valentines", "aniversare", "anniversary", "iubire", "love",
+            "heart", "inimă", "romantic", "romantică", "sweetheart", "darling",
+            "dragă", "dragul meu", "draga mea"
+        )
+    ),
+    FURIE_FRUSTRARE(
+        "Furie & Frustrare", CategoryType.CONCERN, ConcernLevel.MEDIUM,
+        listOf(
+            "furios", "furioasă", "enervat", "enervată", "nervos", "nervoasă",
+            "frustrated", "angry", "rage", "furie", "urăsc totul", "hate everything",
+            "sunt sătul", "sunt sătulă", "fed up", "mă enervează", "înnebunesc",
+            "explodez", "nu mai suport", "totul e groaznic", "#angry", "#frustrated",
+            "pissed off", "am înnebunit", "mă enervez", "suport", "nu pot suporta",
+            "dau cu el de pereți", "dau cu ea de pereți"
+        )
+    ),
+    SINGURATATE(
+        "Singurătate", CategoryType.CONCERN, ConcernLevel.MEDIUM,
+        listOf(
+            "nu am pe nimeni", "no one cares", "nobody", "toți mă ignoră",
+            "nu mă vede nimeni", "mă simt invizibil", "mă simt invizibilă",
+            "fără prieteni", "no friends", "nimeni nu-mi scrie", "nimeni nu m-a sunat",
+            "mă simt singur", "mă simt singură", "singurătate absolută",
+            "nu există nimeni pentru mine", "nu am cu cine", "toți sunt ocupați",
+            "sunt mereu singur", "sunt mereu singură", "nimeni nu mă înțelege",
+            "mi-e dor de cineva", "nu am prieteni adevărați"
+        )
+    ),
+    STRES_SCOLAR(
+        "Stres școlar", CategoryType.CONCERN, ConcernLevel.MEDIUM,
+        listOf(
+            "bacalaureat", "bac", "teze", "teză", "examen greu", "pică examenul",
+            "pică bac-ul", "am picat", "notă proastă", "nota proastă", "am luat 4",
+            "am luat 3", "am luat 2", "am rămas corigent", "corigent", "corigenți",
+            "stres la școală", "nu înțeleg nimic la", "prea greu la",
+            "materia asta e imposibilă", "îmi urăsc școala", "hate school",
+            "school is killing me", "can't do this anymore school",
+            "nu pot cu tezele", "prea multe teme", "nu am dormit de teme"
+        )
+    ),
+    PRESIUNE_GRUP(
+        "Presiune de grup", CategoryType.CONCERN, ConcernLevel.MEDIUM,
+        listOf(
+            "toți fac asta", "everyone does it", "dacă nu faci ești",
+            "if you don't you're lame", "fraier dacă nu", "ești fricos",
+            "ești fricosă", "challenged", "dare", "ce frică îți e", "nu ți-e frică",
+            "fii cool", "be cool", "toată lumea a încercat", "dovedește că poți",
+            "prove it", "nu ești bărbat dacă nu", "nu ești femeie dacă nu",
+            "hai că nu moare nimeni", "nu fi prost", "nu fi proastă",
+            "fă și tu ca ceilalți", "toți ceilalți au făcut", "peer pressure"
+        )
     );
 }

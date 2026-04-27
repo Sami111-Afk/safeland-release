@@ -20,6 +20,9 @@ class DopamineFcmService : FirebaseMessagingService() {
 
     companion object {
         const val CHANNEL_ID = "dopamine_alerts"
+        private const val CHANNEL_ID_REPORTS = "dopamine_reports"
+        private const val NOTIF_ID_ALERT  = 101
+        private const val NOTIF_ID_REPORT = 102
 
         /**
          * Salveaza token-ul FCM al parintelui in Firestore.
@@ -62,30 +65,37 @@ class DopamineFcmService : FirebaseMessagingService() {
         }
     }
 
-    // Apelat cand soseste o notificare FCM (app in foreground sau background)
+    // Apelat mereu (foreground + background) deoarece Cloud Functions trimit doar data, fara notification field
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
 
-        val title = message.notification?.title ?: "Alerta DopamineTrap"
-        val body = message.notification?.body ?: return
+        val title = message.data["title"] ?: message.notification?.title ?: "Alertă Safeland"
+        val body  = message.data["body"]  ?: message.notification?.body  ?: return
+        val type  = message.data["type"]  ?: "alert"
 
-        showNotification(title, body)
+        showNotification(title, body, type)
     }
 
-    private fun showNotification(title: String, body: String) {
+    private fun showNotification(title: String, body: String, type: String) {
         val manager = getSystemService(NotificationManager::class.java)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Alerte parinti",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Alerte critice despre continutul consumat de copil"
-                enableVibration(true)
-            }
-            manager.createNotificationChannel(channel)
+            manager.createNotificationChannel(
+                NotificationChannel(CHANNEL_ID, "Alerte parinti", NotificationManager.IMPORTANCE_HIGH).apply {
+                    description = "Alerte critice despre continutul consumat de copil"
+                    enableVibration(true)
+                }
+            )
+            manager.createNotificationChannel(
+                NotificationChannel(CHANNEL_ID_REPORTS, "Rapoarte saptamanale", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                    description = "Rezumat saptamanal despre continutul consumat"
+                }
+            )
         }
+
+        val isReport = type == "weekly_report"
+        val channelId = if (isReport) CHANNEL_ID_REPORTS else CHANNEL_ID
+        val notifId   = if (isReport) NOTIF_ID_REPORT else NOTIF_ID_ALERT
 
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -95,15 +105,16 @@ class DopamineFcmService : FirebaseMessagingService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val notif = NotificationCompat.Builder(this, CHANNEL_ID)
+        val notif = NotificationCompat.Builder(this, channelId)
             .setContentTitle(title)
             .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setPriority(if (isReport) NotificationCompat.PRIORITY_DEFAULT else NotificationCompat.PRIORITY_MAX)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .build()
 
-        manager.notify(System.currentTimeMillis().toInt(), notif)
+        manager.notify(notifId, notif)
     }
 }

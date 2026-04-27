@@ -6,7 +6,9 @@ import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.sol.dopaminetrap.analysis.WellbeingCalculator
 import com.sol.dopaminetrap.data.FamilySettings
+import com.sol.dopaminetrap.data.WellbeingProfile
 import kotlinx.coroutines.tasks.await
 
 data class ChildInfo(val childId: String, val childName: String)
@@ -111,6 +113,26 @@ object FirebaseRepository {
         return snapshot.documents.mapNotNull { it.data }
     }
 
+    // ── Well-being profile ────────────────────────────────────────────────────
+
+    suspend fun pushWellbeingProfile(familyId: String, childId: String, profile: WellbeingProfile) {
+        childRef(familyId, childId)
+            .collection("wellbeing")
+            .document("latest")
+            .set(WellbeingCalculator.toMap(profile))
+            .await()
+    }
+
+    suspend fun fetchWellbeingProfile(familyId: String, childId: String): WellbeingProfile? {
+        val snapshot = childRef(familyId, childId)
+            .collection("wellbeing")
+            .document("latest")
+            .get()
+            .await()
+        if (!snapshot.exists()) return null
+        return runCatching { WellbeingCalculator.fromMap(snapshot.data ?: return null) }.getOrNull()
+    }
+
     // ── Inregistrare copil in Firestore (la onboarding copil) ─────────────────
 
     suspend fun registerChild(familyId: String, childId: String, childName: String) {
@@ -128,6 +150,12 @@ object FirebaseRepository {
 
         DopamineVpnService.burstBytes.set(settings.burstSizeKb * 1024L)
         DopamineVpnService.pauseMs.set(settings.pauseDurationMs)
+
+        SessionTracker.setLimits(
+            tiktokMin         = settings.tiktokLimitMinutes,
+            instagramMin      = settings.instagramLimitMinutes,
+            youtubeShortsMin  = settings.youtubeShortsLimitMinutes
+        )
 
         DopamineVpnService.instance?.rebuildTunnel()
 

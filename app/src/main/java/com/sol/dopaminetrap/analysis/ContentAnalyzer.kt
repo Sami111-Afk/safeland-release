@@ -15,11 +15,14 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.concurrent.ConcurrentHashMap
+import java.util.LinkedList
 
 object ContentAnalyzer {
 
     private const val TAG = "ContentAnalyzer"
     private const val MAX_RAW_TEXT = 500
+    private const val MIN_WORD_COUNT = 5
+    private const val CONTEXT_BUFFER_SIZE = 5
 
     // ─── Surse de mesagerie (debounce mic, threshold mic) ─────────────────────
     private val MESSAGING_SOURCES = setOf(
@@ -45,11 +48,21 @@ object ContentAnalyzer {
     private val lastTimePerSource = ConcurrentHashMap<String, Long>()
 
     // Timestamps per tip de sursă
-    private val contentTimestamps  = mutableListOf<Long>()
+    private val contentTimestamps   = mutableListOf<Long>()
     private val messagingTimestamps = mutableListOf<Long>()
+
+    // Rolling context buffer per sursă de mesagerie (ultimele CONTEXT_BUFFER_SIZE mesaje)
+    private val messagingContext = ConcurrentHashMap<String, LinkedList<String>>()
 
     fun analyze(context: Context, text: String, sourceApp: String) {
         if (text.isBlank()) return
+
+        // Pre-filtrare: minim MIN_WORD_COUNT cuvinte
+        val wordCount = text.trim().split(Regex("\\s+")).size
+        if (wordCount < MIN_WORD_COUNT) {
+            Log.d(TAG, "[$sourceApp] Skip text scurt ($wordCount cuvinte)")
+            return
+        }
 
         val isMessaging = sourceApp in MESSAGING_SOURCES
         val debounceMs  = if (isMessaging) MESSAGING_DEBOUNCE_MS else CONTENT_DEBOUNCE_MS
@@ -65,8 +78,29 @@ object ContentAnalyzer {
         lastKeyPerSource[sourceApp]  = key
         lastTimePerSource[sourceApp] = now
 
-        val mlCategories = ModelManager.classify(context, text)
-        val keywordCategories = KeywordMatcher.analyze(text)
+        // Pentru mesagerie: acumulăm context și analizăm textul combinat
+        val textToAnalyze = if (isMessaging) {
+            val buffer = messagingContext.getOrPut(sourceApp) { LinkedList() }
+            synchronized(buffer) {
+                buffer.addLast(text)
+                if (buffer.size > CONTEXT_BUFFER_SIZE) buffer.removeFirst()
+                buffer.joinToString(" | ")
+            }
+        } else {
+            text
+        }
+
+        // Keyword-first: dacă găsim CRITICAL → skip ML (economisim inferența)
+        val keywordCategories = KeywordMatcher.analyze(textToAnalyze)
+        val keywordConcern = if (keywordCategories.isNotEmpty()) KeywordMatcher.maxConcernLevel(keywordCategories) else null
+
+        val mlCategories = if (keywordConcern == ConcernLevel.CRITICAL) {
+            Log.d(TAG, "[$sourceApp] CRITICAL via keywords — skip ML")
+            emptyList()
+        } else {
+            ModelManager.classify(context, textToAnalyze)
+        }
+
         val categories = (mlCategories + keywordCategories).distinct()
         if (categories.isEmpty()) return
 

@@ -34,7 +34,7 @@ fun ModeSelectionScreen(onModeSelected: (DeviceMode) -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            "DopamineTrap",
+            "Safeland",
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold
         )

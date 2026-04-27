@@ -1,4 +1,4 @@
-# 🧠 Dopamine Trap (Android Client)
+# 🛡️ Safeland (formerly Dopamine Trap)
 
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.x-purple)
 ![Android](https://img.shields.io/badge/Android-SDK_24--36-green)
@@ -6,64 +6,51 @@
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-Lite-orange)
 ![Status](https://img.shields.io/badge/Status-Active_Development-brightgreen)
 
-**Dopamine Trap** is a sophisticated, privacy-first Android application designed to monitor, filter, and throttle digital content consumption for children. Operating through a localized VPN and Accessibility Services, it performs **on-device Machine Learning (ML)** to analyze text on screen in real-time, detecting harmful content (e.g., grooming, adult content, violence) while actively throttling addictive platforms like TikTok, Instagram, and YouTube Shorts.
+**Safeland** is a next-generation, privacy-first Android ecosystem designed to foster healthy digital habits for children. By combining real-time content analysis with advanced network throttling and psychological well-being metrics, Safeland provides parents with deep insights and proactive tools to protect their children from addictive patterns and harmful content.
+
+## 🌟 What's New: The "Wellbeing" Update
+We've moved beyond simple blocking. Safeland now features a **Digital Wellbeing Engine** that analyzes usage patterns to generate a holistic health profile for the child, providing AI-powered suggestions for a more balanced digital life.
 
 ## 🚀 Key Features
 
-### 1. Dual Architecture (Parent & Child Modes)
-- **Parent Mode:** A control dashboard to monitor alerts, view weekly reports, and dynamically adjust throttling settings in real-time.
-- **Child Mode:** Runs silently in the background, utilizing a localized VPN and Accessibility Service to monitor content and throttle network traffic.
-- **Real-Time Sync:** Powered by **Firebase Firestore** to sync settings (burst size, pause duration, enabled apps) instantly from Parent to Child.
+### 1. Digital Wellbeing & Analytics (New!)
+- **Wellbeing Profile:** Automatically calculates metrics like "Focus Score", "Social Risk", and "Consumption Quality".
+- **Session Tracking:** Precise monitoring of time spent on addictive platforms (TikTok, Instagram, YouTube Shorts).
+- **Daily Progress:** Visual tracking of how digital habits evolve over time.
 
-### 2. Deep UI Monitoring (Accessibility Service)
-The `DopamineAccessibilityService` hooks into the Android View hierarchy to:
-- Detect when the user enters the "Shorts" tab in YouTube.
-- Actively track foreground states for TikTok and Instagram.
-- **Extract visible text** from the screen continuously for analysis.
-- *Includes a developer "Training Mode" for automated TikTok swiping to gather dataset samples.*
+### 2. Dual Architecture & Modern UI
+- **Parent Dashboard:** Completely redesigned with a modern, tabbed interface for seamless monitoring and control.
+- **Child Mode:** A silent, battery-efficient background service.
+- **Daily Limits:** Set specific time allowances for monitored apps directly from the Parent device.
 
-### 3. On-Device Machine Learning (TensorFlow Lite)
-To ensure maximum privacy, content analysis happens 100% on the device.
-- Uses a custom trained `model.tflite` to classify text extracted by the Accessibility Service.
-- Identifies critical risk categories: `GROOMING`, `CONTINUT_SEXUAL`, `VIOLENTA_EXTREMA`.
-- Bypasses cloud APIs, meaning the child's screen data never leaves the device.
+### 3. Deep UI Monitoring (Accessibility Service)
+- Detects specific UI states (e.g., entering "Shorts" in YouTube).
+- Extracts visible text for real-time safety classification.
+- Intelligent foreground detection to trigger throttling only when needed.
 
-### 4. Smart Network Throttling (Local VPN)
-The `DopamineVpnService` creates a local VPN tunnel that intercepts and artificially degrades network traffic for specific apps.
-- **Dynamic Throttling:** When an addictive app (TikTok/Instagram) is in the foreground, or the Shorts tab is active, the VPN applies calculated latency and packet drops based on the Parent's settings (`burstBytes`, `pauseMs`).
+### 4. On-Device Machine Learning (TensorFlow Lite)
+Privacy is non-negotiable. All content analysis happens 100% on-device:
+- Classifies extracted text into risk categories: `GROOMING`, `SEXUAL_CONTENT`, `EXTREME_VIOLENCE`.
+- Data never leaves the device unless a critical alert is triggered.
 
-### 5. Multi-Vector Monitoring
-- **SMS & Notifications:** Monitors incoming text messages and notifications from apps like WhatsApp and Telegram for flagged keywords or grooming patterns.
-- **Weekly Reports:** `WeeklyReportWorker` aggregates data and generates comprehensive reports for parents.
+### 5. Smart Network Throttling (Local VPN)
+- **Adaptive Latency:** Artificially degrades network performance for addictive apps based on usage limits.
+- **Burst Control:** Parents can configure how much data is allowed before a "cooldown" pause is enforced.
 
 ## 🏗️ Technical Stack
 
-- **UI:** Jetpack Compose (Material 3).
+- **UI:** Jetpack Compose (Modern Material 3 with Custom Brand Identity).
 - **Architecture:** MVVM, Coroutines, WorkManager.
-- **Local Storage:** Room Database for caching content events and ML reports.
-- **Cloud/Backend:** Firebase (Firestore for state sync, FCM for Parent alerts, Auth).
-- **AI/ML:** TensorFlow Lite (`litert`).
+- **Database:** Room (Local Events/Reports), Firebase Firestore (Real-time Sync).
+- **Messaging:** FCM (Data-driven alerts and reports).
+- **ML:** TensorFlow Lite / LiteRT.
 
 ## ⚙️ Setup & Installation
 
-### Prerequisites
-- Android Studio (Jellyfish or newer recommended).
-- A valid `google-services.json` file placed in the `app/` directory (for Firebase).
-
-### Building the Project
 1. Clone the repository.
-2. Ensure you have the ML assets in `app/src/main/assets/`:
-   - `model.tflite`
-   - `vocab.json`
-   - `labels.json`
-3. Sync Gradle and build the project.
+2. Place your `google-services.json` in the `app/` directory.
+3. Ensure ML assets (`model.tflite`, `vocab.json`, `labels.json`) are in `app/src/main/assets/`.
+4. Build using Android Studio Jellyfish+.
 
-### Permissions Required (Child Device)
-For the app to function correctly on a child's device, the following must be granted:
-- **VPN Service:** For network traffic interception and throttling.
-- **Accessibility Service:** For reading screen text and detecting UI states.
-- **Notification Access:** To monitor incoming messages.
-- **SMS Permissions:** To scan text messages for risks.
-
-## 🔒 Privacy & Security Note
-*Dopamine Trap prioritizes user privacy. All screen reading, text extraction, and Machine Learning classification occur strictly on the local device. Data sent to Firebase consists only of aggregated reports, settings sync, and flagged alerts for the Parent.*
+## 🔒 Privacy Commitment
+Safeland is built on the principle that a child's screen data belongs to them. Classification is local, alerts are encrypted, and monitoring is transparent.

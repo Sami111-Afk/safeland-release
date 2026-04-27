@@ -108,15 +108,15 @@ Evaluează dacă această alertă merită trimisă imediat părintelui sau e rep
 
     await getMessaging().send({
       token: parentToken,
-      notification: {
-        title: `Alerta DopamineTrap — ${childName}`,
+      data: {
+        type: "alert",
+        familyId,
+        childId,
+        alertId: event.params.alertId,
+        title: `Alertă Safeland — ${childName}`,
         body: alertReason,
       },
-      data: { type: "alert", familyId, childId, alertId: event.params.alertId },
-      android: {
-        priority: "high",
-        notification: { channelId: "dopamine_alerts", priority: "max", defaultSound: "true" },
-      },
+      android: { priority: "high" },
     }).catch((err) => console.error("Eroare FCM alerta:", err));
 
     console.log(`Alerta trimisa parintelui (${familyId}/${childId}): ${alertReason}`);
@@ -141,12 +141,15 @@ exports.sendWeeklyReport = onDocumentCreated(
 
     await getMessaging().send({
       token: parentToken,
-      notification: { title: `${childName}: ${title}`, body: message },
-      data: { type: "weekly_report", familyId, childId, reportId: event.params.reportId },
-      android: {
-        priority: "normal",
-        notification: { channelId: "dopamine_reports", priority: "default", defaultSound: "true" },
+      data: {
+        type: "weekly_report",
+        familyId,
+        childId,
+        reportId: event.params.reportId,
+        title: `${childName}: ${title}`,
+        body: message,
       },
+      android: { priority: "normal" },
     }).catch((err) => console.error("Eroare FCM raport:", err));
 
     console.log(`Raport saptamanal trimis parintelui (${familyId}/${childId})`);

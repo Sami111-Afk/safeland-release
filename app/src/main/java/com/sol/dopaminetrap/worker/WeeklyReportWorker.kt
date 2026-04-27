@@ -8,7 +8,9 @@ import androidx.core.app.NotificationCompat
 import androidx.work.*
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.sol.dopaminetrap.FirebaseRepository
 import com.sol.dopaminetrap.OnboardingManager
+import com.sol.dopaminetrap.analysis.WellbeingCalculator
 import com.sol.dopaminetrap.data.AppDatabase
 import com.sol.dopaminetrap.data.CategoryType
 import com.sol.dopaminetrap.data.ConcernLevel
@@ -19,7 +21,7 @@ import java.util.concurrent.TimeUnit
 class WeeklyReportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
 
     companion object {
-        private const val CHANNEL_ID = "DopamineTrapReport"
+        private const val CHANNEL_ID = "SafelandReport"
         private const val NOTIF_ID = 100
         private const val WORK_NAME = "weekly_report"
         private const val KEEP_DATA_DAYS = 90L
@@ -70,6 +72,14 @@ class WeeklyReportWorker(ctx: Context, params: WorkerParameters) : CoroutineWork
             val message = buildMessage(interests, concerns, maxConcern)
 
             pushReportToFirestore(title, message, maxConcern, interests, concerns)
+
+            // Well-being profile
+            val familyId = OnboardingManager.getFamilyId(applicationContext)
+            val childId  = OnboardingManager.getChildId(applicationContext)
+            if (familyId != null && childId != null) {
+                val profile = WellbeingCalculator.calculate(events)
+                runCatching { FirebaseRepository.pushWellbeingProfile(familyId, childId, profile) }
+            }
         }
 
         // Păstrăm datele 90 de zile pentru viitorul model de AI

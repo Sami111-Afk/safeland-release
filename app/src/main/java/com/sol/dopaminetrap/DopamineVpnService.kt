@@ -42,7 +42,7 @@ class DopamineVpnService : VpnService(), Runnable {
 
     companion object {
         private const val TAG = "DopamineVpn"
-        private const val CHANNEL_ID = "DopamineTrapChannel"
+        private const val CHANNEL_ID = "SafelandChannel"
         private const val NOTIF_ID = 1
         private const val ACTION_STOP = "com.sol.dopaminetrap.STOP"
         private const val MTU = 1500
@@ -179,7 +179,7 @@ class DopamineVpnService : VpnService(), Runnable {
         if (packages.isEmpty()) return null
 
         val builder = Builder()
-            .setSession("DopamineTrap")
+            .setSession("Safeland")
             .setMtu(MTU)
             .addAddress("10.0.0.1", 24)
             .addRoute("0.0.0.0", 0)
@@ -307,11 +307,23 @@ class DopamineVpnService : VpnService(), Runnable {
             var read: Int
             while (serverIn.read(buf).also { read = it } != -1) {
                 burst += read
-                val currentBurstBytes = burstBytes.get()
-                val currentPauseMs = pauseMs.get()
-                if (burst >= currentBurstBytes) {
-                    Log.d(TAG, "⏸ Throttle ${currentPauseMs}ms [port ${conn.srcPort}]")
-                    Thread.sleep(currentPauseMs)
+
+                // null = limită setată + timp suficient → fără throttle
+                val multiplier: Float? = when {
+                    isTikTokForeground.get()    -> SessionTracker.getThrottleMultiplier(ProtectedApp.TIKTOK)
+                    isInstagramForeground.get() -> SessionTracker.getThrottleMultiplier(ProtectedApp.INSTAGRAM)
+                    isYoutubeShortsActive.get() -> SessionTracker.getThrottleMultiplier(ProtectedApp.YOUTUBE_SHORTS)
+                    else -> null
+                }
+                if (multiplier != null) {
+                    val currentBurstBytes = (burstBytes.get() * multiplier).toLong().coerceAtLeast(4_096L)
+                    val currentPauseMs    = (pauseMs.get() / multiplier.coerceAtLeast(0.02f)).toLong().coerceAtMost(60_000L)
+                    if (burst >= currentBurstBytes) {
+                        Log.d(TAG, "⏸ Throttle ${currentPauseMs}ms [port ${conn.srcPort}, mult=${"%.2f".format(multiplier)}]")
+                        Thread.sleep(currentPauseMs)
+                        burst = 0
+                    }
+                } else {
                     burst = 0
                 }
                 val payload = buf.copyOf(read)
@@ -468,7 +480,7 @@ class DopamineVpnService : VpnService(), Runnable {
 
     private fun showNotification() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val chan = NotificationChannel(CHANNEL_ID, "Dopamine Trap", NotificationManager.IMPORTANCE_LOW)
+            val chan = NotificationChannel(CHANNEL_ID, "Safeland", NotificationManager.IMPORTANCE_LOW)
             getSystemService(NotificationManager::class.java).createNotificationChannel(chan)
         }
         val stopPi = PendingIntent.getService(
@@ -477,7 +489,7 @@ class DopamineVpnService : VpnService(), Runnable {
             PendingIntent.FLAG_IMMUTABLE
         )
         val notif = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Dopamine Trap: Activ")
+            .setContentTitle("Safeland: Activ")
             .setContentText("TikTok/Instagram: mereu | YouTube Shorts: la detectie")
             .setSmallIcon(android.R.drawable.ic_lock_lock)
             .addAction(0, "STOP", stopPi)
