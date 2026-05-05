@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Date familie — doar utilizatori autentificați (inclusiv anonim)
+    match /families/{familyId}/{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Pairing codes — copilul creează, oricine autentificat poate citi (pentru conectare), părintele poate actualiza resolvedFamilyId
+    match /pairing/{code} {
+      allow create: if request.auth != null;
+      allow read:   if request.auth != null;
+      allow update: if request.auth != null
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["resolvedFamilyId"]);
+      allow delete: if false;
+    }
+
+    // Feedback suport — oricine autentificat poate crea, nimeni nu poate citi/modifica din app
+    match /feedback/{docId} {
+      allow create: if request.auth != null
+                    && request.resource.data.message is string
+                    && request.resource.data.message.size() <= 2000
+                    && request.resource.data.category in ["Bug", "Sugestie", "Întrebare"];
+      allow read, update, delete: if false;
+    }
+
+    // Orice altceva — blocat
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

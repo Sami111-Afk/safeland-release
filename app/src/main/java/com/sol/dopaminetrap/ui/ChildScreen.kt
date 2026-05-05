@@ -41,6 +41,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.sol.dopaminetrap.*
+import com.sol.dopaminetrap.BuildConfig
 import com.sol.dopaminetrap.ui.theme.BrandIndigo
 import com.sol.dopaminetrap.ui.theme.StatusGreen
 import com.sol.dopaminetrap.ui.theme.StatusRed
@@ -138,7 +139,11 @@ fun ChildScreen(
             }
 
             // ── Dev tools ─────────────────────────────────────────────────────
-            DevToolsSection()
+            PairingCodeCard()
+
+            if (BuildConfig.DEBUG) {
+                DevToolsSection()
+            }
 
             Spacer(Modifier.height(16.dp))
         }
@@ -346,6 +351,108 @@ private fun ProtectedAppsCard(
                         modifier = Modifier.padding(vertical = 4.dp),
                         color = MaterialTheme.colorScheme.outline.copy(0.4f)
                     )
+                }
+            }
+        }
+    }
+}
+
+// ── Pairing code card ─────────────────────────────────────────────────────────
+
+@Composable
+private fun PairingCodeCard() {
+    val context = LocalContext.current
+    val scope   = rememberCoroutineScope()
+    val familyId  = remember { com.sol.dopaminetrap.OnboardingManager.getFamilyId(context) ?: "" }
+    val childId   = remember { com.sol.dopaminetrap.OnboardingManager.getChildId(context) ?: "" }
+    val childName = remember { com.sol.dopaminetrap.OnboardingManager.getChildName(context) ?: "Copil" }
+
+    var code      by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+    var error     by remember { mutableStateOf<String?>(null) }
+
+    Card(
+        modifier  = Modifier.fillMaxWidth(),
+        shape     = RoundedCornerShape(16.dp),
+        colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Column(
+            Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                "Conectare cu părintele",
+                style      = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color      = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            if (code == null) {
+                Text(
+                    "Generează un cod de 6 cifre pe care părintele îl introduce în aplicația lui.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                error?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                }
+                OutlinedButton(
+                    onClick = {
+                        isLoading = true
+                        error = null
+                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            runCatching {
+                                val newCode = com.sol.dopaminetrap.FirebaseRepository
+                                    .generatePairingCode(familyId, childId, childName)
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    code = newCode
+                                }
+                            }.onFailure {
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    error = "Eroare. Verifică internetul."
+                                }
+                            }
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                isLoading = false
+                            }
+                        }
+                    },
+                    enabled  = !isLoading && familyId.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape    = RoundedCornerShape(10.dp)
+                ) {
+                    if (isLoading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else Text("Generează cod de conectare", style = MaterialTheme.typography.bodySmall)
+                }
+            } else {
+                Text(
+                    "Dă acest cod părintelui (expiră în 15 min):",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape    = RoundedCornerShape(12.dp),
+                    color    = BrandIndigo.copy(alpha = 0.10f)
+                ) {
+                    Text(
+                        code!!,
+                        modifier   = Modifier.padding(vertical = 16.dp).fillMaxWidth(),
+                        style      = MaterialTheme.typography.displaySmall.copy(
+                            fontFamily    = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            letterSpacing = 8.sp
+                        ),
+                        fontWeight = FontWeight.Bold,
+                        color      = BrandIndigo,
+                        textAlign  = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+                TextButton(
+                    onClick  = { code = null },
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("Generează alt cod", style = MaterialTheme.typography.labelSmall)
                 }
             }
         }

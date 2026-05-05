@@ -23,13 +23,24 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile     = file("safeland-release.jks")   // pune keystore-ul lângă build.gradle.kts
+            storePassword = System.getenv("KEYSTORE_PASS") ?: ""
+            keyAlias      = "safeland"
+            keyPassword   = System.getenv("KEY_PASS")      ?: ""
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled   = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
@@ -37,7 +48,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
     buildFeatures {
-        compose = true
+        buildConfig    = true
+        compose        = true
         mlModelBinding = true
     }
     aaptOptions {

@@ -12,15 +12,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sol.dopaminetrap.ChildInfo
 import com.sol.dopaminetrap.FirebaseRepository
+import com.sol.dopaminetrap.analysis.categoryLabel
 import com.sol.dopaminetrap.OnboardingManager
 import com.sol.dopaminetrap.data.FamilySettings
 import com.sol.dopaminetrap.data.WellbeingProfile
@@ -40,19 +45,25 @@ fun ParentScreen() {
     val context  = LocalContext.current
     val familyId = remember { OnboardingManager.getFamilyId(context) ?: "" }
 
-    var children           by remember { mutableStateOf<List<ChildInfo>>(emptyList()) }
-    var selectedChild      by remember { mutableStateOf<ChildInfo?>(null) }
-    var isLoadingChildren  by remember { mutableStateOf(true) }
+    var children          by remember { mutableStateOf<List<ChildInfo>>(emptyList()) }
+    var selectedChild     by remember { mutableStateOf<ChildInfo?>(null) }
+    var isLoadingChildren by remember { mutableStateOf(true) }
+    var loadError         by remember { mutableStateOf<String?>(null) }
+    var retryKey          by remember { mutableStateOf(0) }
 
-    LaunchedEffect(familyId) {
+    LaunchedEffect(familyId, retryKey) {
+        isLoadingChildren = true
+        loadError         = null
         if (familyId.isNotEmpty()) {
-            children = FirebaseRepository.fetchChildren(familyId)
-            if (children.size == 1) selectedChild = children.first()
-            if (children.isEmpty()) {
-                val id   = OnboardingManager.getChildId(context)
-                val name = OnboardingManager.getChildName(context) ?: "Copil"
-                if (id != null) selectedChild = ChildInfo(id, name)
-            }
+            runCatching {
+                children = FirebaseRepository.fetchChildren(familyId)
+                if (children.size == 1) selectedChild = children.first()
+                if (children.isEmpty()) {
+                    val id   = OnboardingManager.getChildId(context)
+                    val name = OnboardingManager.getChildName(context) ?: "Copil"
+                    if (id != null) selectedChild = ChildInfo(id, name)
+                }
+            }.onFailure { e -> loadError = e.message ?: e.javaClass.simpleName }
         }
         isLoadingChildren = false
     }
@@ -67,24 +78,35 @@ fun ParentScreen() {
             return@Column
         }
 
-        if (children.size > 1) {
-            ChildSelectorBar(children = children, selected = selectedChild, onSelect = { selectedChild = it })
-        }
-
-        val child = selectedChild
-        if (child == null) {
-            Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-                Card(shape = RoundedCornerShape(16.dp)) {
-                    Text(
-                        "Niciun copil conectat. Fă pairing mai întâi de pe telefonul copilului.",
-                        modifier = Modifier.padding(20.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+        // Eroare la încărcare — afișează eroarea și buton retry
+        if (loadError != null) {
+            Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Nu s-au putut încărca datele.", style = MaterialTheme.typography.bodyMedium)
+                    Text(loadError!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    Button(onClick = { retryKey++ }, colors = ButtonDefaults.buttonColors(containerColor = BrandIndigo)) {
+                        Text("Încearcă din nou")
+                    }
                 }
             }
             return@Column
         }
+
+        // Niciun copil — arată direct tab-ul Familie ca să știe cum să facă pairing
+        if (children.isEmpty()) {
+            FamilieTab(
+                familyId         = familyId,
+                children         = emptyList(),
+                onChildrenChanged = { }
+            )
+            return@Column
+        }
+
+        if (children.size > 1) {
+            ChildSelectorBar(children = children, selected = selectedChild, onSelect = { selectedChild = it })
+        }
+
+        val child = selectedChild ?: children.first()
 
         var selectedTab by remember { mutableStateOf(0) }
 
@@ -93,7 +115,7 @@ fun ParentScreen() {
             containerColor   = MaterialTheme.colorScheme.surface,
             contentColor     = BrandIndigo
         ) {
-            listOf("🔔 Alerte", "⚙️ Control", "🧠 Bunăstare", "📊 Rapoarte")
+            listOf("🔔 Alerte", "⚙️ Control", "🧠 Bunăstare", "📊 Rapoarte", "👨‍👧 Familie", "💬 Suport")
                 .forEachIndexed { i, label ->
                     Tab(
                         selected = selectedTab == i,
@@ -108,6 +130,16 @@ fun ParentScreen() {
             1 -> ControlTab(familyId = familyId, child = child)
             2 -> WellbeingTab(familyId = familyId, childId = child.childId)
             3 -> ReportsTab(familyId = familyId, childId = child.childId)
+            4 -> FamilieTab(
+                    familyId          = familyId,
+                    children          = children,
+                    onChildrenChanged = { updated ->
+                        children      = updated
+                        selectedChild = updated.find { it.childId == selectedChild?.childId }
+                                        ?: updated.firstOrNull()
+                    }
+                 )
+            5 -> SupportTab(familyId = familyId, childId = child.childId)
         }
     }
 }
@@ -271,12 +303,17 @@ private fun NotificationsTab(familyId: String, childId: String) {
 private fun ExpandableAlertCard(alert: Map<String, Any>) {
     var expanded by remember { mutableStateOf(false) }
 
-    val timestamp    = (alert["timestamp"] as? Long) ?: 0L
-    val category     = alert["category"]    as? String ?: "necunoscut"
-    val sourceApp    = alert["sourceApp"]   as? String ?: ""
-    val message      = alert["message"]     as? String ?: ""
-    val isWellbeing  = alert["sourceType"]  == "wellbeing"
-    val concernLevel = alert["concernLevel"] as? String ?: "NONE"
+    val timestamp      = (alert["timestamp"] as? Long) ?: 0L
+    val categoryRaw    = alert["category"]       as? String ?: "necunoscut"
+    val category       = categoryLabel(categoryRaw)
+    val allCategoriesRaw = alert["allCategories"] as? String ?: ""
+    val sourceApp      = alert["sourceApp"]   as? String ?: ""
+    val isWellbeing    = alert["sourceType"]  == "wellbeing"
+    val concernLevel   = alert["concernLevel"] as? String ?: "NONE"
+    val message        = (alert["message"] as? String)
+        ?.takeIf { it.isNotBlank() }
+        ?: allCategoriesRaw.split("|").filter { it.isNotEmpty() }
+            .joinToString(", ") { categoryLabel(it) }
 
     val accentColor = when {
         isWellbeing                                -> BrandIndigo
@@ -693,6 +730,367 @@ private fun ModernReportCard(report: Map<String, Any>) {
                 )
             }
         }
+    }
+}
+
+// ── Tab 4: Familie ────────────────────────────────────────────────────────────
+
+@Composable
+private fun FamilieTab(
+    familyId: String,
+    children: List<ChildInfo>,
+    onChildrenChanged: (List<ChildInfo>) -> Unit
+) {
+    val scope = rememberCoroutineScope()
+
+    // ── State ștergere ────────────────────────────────────────────────────────
+    var childToDelete by remember { mutableStateOf<ChildInfo?>(null) }
+    var isDeleting    by remember { mutableStateOf(false) }
+
+    // ── State adăugare copil ──────────────────────────────────────────────────
+    var showAddDialog   by remember { mutableStateOf(false) }
+    var addCode         by remember { mutableStateOf("") }
+    var isAdding        by remember { mutableStateOf(false) }
+    var addError        by remember { mutableStateOf<String?>(null) }
+    var failedAttempts  by remember { mutableStateOf(0) }
+    var cooldownUntil   by remember { mutableStateOf(0L) }
+
+    // Dialog confirmare ștergere
+    childToDelete?.let { target ->
+        AlertDialog(
+            onDismissRequest = { if (!isDeleting) childToDelete = null },
+            title   = { Text("Elimini ${target.childName}?") },
+            text    = { Text("Toate alertele și datele pentru ${target.childName} vor fi șterse permanent.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    isDeleting = true
+                    scope.launch {
+                        runCatching {
+                            FirebaseRepository.removeChild(familyId, target.childId)
+                            onChildrenChanged(children.filter { it.childId != target.childId })
+                        }
+                        isDeleting = false
+                        childToDelete = null
+                    }
+                }) {
+                    if (isDeleting)
+                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    else
+                        Text("Elimină", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { childToDelete = null }) { Text("Anulează") }
+            }
+        )
+    }
+
+    // Dialog adăugare copil nou
+    if (showAddDialog) {
+        val inCooldown = System.currentTimeMillis() < cooldownUntil
+        AlertDialog(
+            onDismissRequest = { if (!isAdding) { showAddDialog = false; addCode = ""; addError = null } },
+            title = { Text("Adaugă copil nou") },
+            text  = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Introdu codul de 6 cifre afișat pe telefonul copilului.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value         = addCode,
+                        onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) addCode = it },
+                        label         = { Text("Cod 6 cifre") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine    = true,
+                        enabled       = !isAdding && !inCooldown,
+                        textStyle     = LocalTextStyle.current.copy(
+                            fontFamily    = FontFamily.Monospace,
+                            letterSpacing = 6.sp
+                        )
+                    )
+                    addError?.let { err ->
+                        Text(err, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                    }
+                    if (inCooldown) {
+                        Text(
+                            "Prea multe încercări. Așteaptă 60 de secunde.",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = addCode.length == 6 && !isAdding && !inCooldown,
+                    onClick = {
+                        isAdding  = true
+                        addError  = null
+                        scope.launch {
+                            runCatching {
+                                val newChild = FirebaseRepository.addChildFromPairingCode(familyId, addCode)
+                                onChildrenChanged(children + newChild)
+                                showAddDialog = false
+                                addCode = ""
+                                failedAttempts = 0
+                            }.onFailure { e ->
+                                failedAttempts++
+                                addError = e.message ?: "Cod invalid."
+                                if (failedAttempts >= 3) {
+                                    cooldownUntil  = System.currentTimeMillis() + 60_000L
+                                    failedAttempts = 0
+                                }
+                            }
+                            isAdding = false
+                        }
+                    }
+                ) {
+                    if (isAdding) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    else Text("Conectează", fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddDialog = false; addCode = ""; addError = null }) {
+                    Text("Anulează")
+                }
+            }
+        )
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment     = Alignment.CenterVertically
+        ) {
+            Text("Familia mea", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Button(
+                onClick        = { showAddDialog = true },
+                shape          = RoundedCornerShape(10.dp),
+                colors         = ButtonDefaults.buttonColors(containerColor = BrandIndigo),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Text("+ Adaugă copil", style = MaterialTheme.typography.labelSmall)
+            }
+        }
+
+        // ── Lista copii ───────────────────────────────────────────────────────
+        if (children.isEmpty()) {
+            Box(
+                Modifier.fillMaxWidth().padding(top = 32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("👨‍👧", fontSize = 44.sp)
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "Niciun copil conectat încă.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Apasă '+ Adaugă copil' și introdu codul de pe telefonul copilului.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        } else {
+            Card(
+                modifier  = Modifier.fillMaxWidth(),
+                shape     = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(
+                        "Copii conectați (${children.size})",
+                        style      = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    children.forEachIndexed { index, child ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                            verticalAlignment     = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment     = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(BrandIndigo.copy(alpha = 0.12f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("👤", fontSize = 18.sp)
+                                }
+                                Column {
+                                    Text(
+                                        child.childName,
+                                        style      = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        "Conectat",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = StatusGreen
+                                    )
+                                }
+                            }
+                            IconButton(onClick = { childToDelete = child }) {
+                                Text("🗑️", fontSize = 18.sp)
+                            }
+                        }
+                        if (index < children.size - 1) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(0.3f))
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+// ── Tab 5: Suport ─────────────────────────────────────────────────────────────
+
+@Composable
+private fun SupportTab(familyId: String, childId: String) {
+    val scope = rememberCoroutineScope()
+    val categories = listOf("Bug", "Sugestie", "Întrebare")
+    var selectedCategory by remember { mutableStateOf("Sugestie") }
+    var message          by remember { mutableStateOf("") }
+    var isSending        by remember { mutableStateOf(false) }
+    var result           by remember { mutableStateOf<String?>(null) }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            "Contactează suportul",
+            style      = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            "Ai o problemă sau o sugestie? Trimite-ne un mesaj și te contactăm în cel mai scurt timp.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Card(
+            modifier  = Modifier.fillMaxWidth(),
+            shape     = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(2.dp)
+        ) {
+            Column(
+                Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "Categorie",
+                    style      = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    categories.forEach { cat ->
+                        FilterChip(
+                            selected = selectedCategory == cat,
+                            onClick  = { selectedCategory = cat },
+                            label    = { Text(cat, style = MaterialTheme.typography.labelSmall) },
+                            colors   = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = BrandIndigo,
+                                selectedLabelColor     = Color.White
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        Card(
+            modifier  = Modifier.fillMaxWidth(),
+            shape     = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(2.dp)
+        ) {
+            Column(
+                Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "Mesaj",
+                    style      = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                OutlinedTextField(
+                    value         = message,
+                    onValueChange = { message = it },
+                    placeholder   = {
+                        Text(
+                            "Descrie problema sau sugestia ta...",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    },
+                    modifier  = Modifier.fillMaxWidth(),
+                    shape     = RoundedCornerShape(12.dp),
+                    minLines  = 4,
+                    maxLines  = 8
+                )
+            }
+        }
+
+        Button(
+            onClick = {
+                if (message.isBlank()) return@Button
+                isSending = true
+                result    = null
+                scope.launch {
+                    runCatching {
+                        FirebaseRepository.submitFeedback(familyId, childId, selectedCategory, message)
+                        message = ""
+                        result  = "Mesaj trimis! Te contactăm în curând."
+                    }.onFailure {
+                        result = "Eroare la trimitere. Încearcă din nou."
+                    }
+                    isSending = false
+                }
+            },
+            enabled  = !isSending && message.isNotBlank(),
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape    = RoundedCornerShape(14.dp),
+            colors   = ButtonDefaults.buttonColors(containerColor = BrandIndigo)
+        ) {
+            if (isSending)
+                CircularProgressIndicator(modifier = Modifier.size(22.dp), color = Color.White, strokeWidth = 2.dp)
+            else
+                Text("Trimite mesaj", fontWeight = FontWeight.SemiBold)
+        }
+
+        result?.let { msg ->
+            Text(
+                msg,
+                style    = MaterialTheme.typography.bodySmall,
+                color    = if (msg.startsWith("Eroare")) MaterialTheme.colorScheme.error else StatusGreen,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
     }
 }
 

@@ -14,6 +14,10 @@
 .cxx
 local.properties
 
+# Firebase — nu commitam cheia în repo (e oricum în APK, dar evităm expunerea)
+google-services.json
+app/safeland-release.jks
+
 # AI Agent artifacts
 .agents/
 .claude/

@@ -177,10 +177,25 @@ fun ChildSetupScreen(onDone: (familyId: String, childId: String, childName: Stri
                 }
                 Spacer(Modifier.height(40.dp))
                 Button(
-                    onClick = { onDone(familyId, childId, childName.trim().ifEmpty { "Copil" }) },
+                    onClick = {
+                        isLoading = true
+                        scope.launch {
+                            // Dacă părintele a adăugat copilul din FamilieTab, folosim familyId-ul lui
+                            val resolvedFamilyId = runCatching {
+                                Firebase.firestore.collection("pairing").document(pairingCode)
+                                    .get().await().getString("resolvedFamilyId")
+                            }.getOrNull() ?: familyId
+                            if (resolvedFamilyId != familyId) {
+                                runCatching { FirebaseRepository.registerChild(resolvedFamilyId, childId, childName.trim().ifEmpty { "Copil" }) }
+                            }
+                            isLoading = false
+                            onDone(resolvedFamilyId, childId, childName.trim().ifEmpty { "Copil" })
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth().height(56.dp)
                 ) {
-                    Text("Parintele a introdus codul — Continua")
+                    if (isLoading) CircularProgressIndicator(Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                    else Text("Parintele a introdus codul — Continua")
                 }
             }
         }

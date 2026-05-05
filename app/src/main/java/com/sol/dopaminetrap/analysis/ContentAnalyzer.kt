@@ -151,7 +151,7 @@ object ContentAnalyzer {
             if (timestamps.size >= threshold) {
                 timestamps.clear()
                 Log.d(TAG, "Prag atins — trimit alerta ($sourceApp)")
-                scope.launch { sendAlert(context, sourceApp, categoriesStr, isMessaging) }
+                scope.launch { sendAlert(context, sourceApp, categoriesStr, concernLevel, isMessaging) }
             }
         }
     }
@@ -160,6 +160,7 @@ object ContentAnalyzer {
         context: Context,
         sourceApp: String,
         categories: String,
+        concernLevel: ConcernLevel,
         isMessaging: Boolean
     ) {
         val familyId = OnboardingManager.getFamilyId(context) ?: return
@@ -170,11 +171,15 @@ object ContentAnalyzer {
                 .collection("children").document(childId)
                 .collection("alerts")
                 .add(mapOf<String, Any>(
-                    "sourceApp"    to sourceApp,
-                    "category"     to (categories.split("|").firstOrNull { it.isNotEmpty() } ?: categories),
+                    "sourceApp"     to sourceApp,
+                    "category"      to (categories.split("|").firstOrNull { it.isNotEmpty() } ?: categories),
                     "allCategories" to categories,
-                    "sourceType"   to if (isMessaging) "messaging" else "content",
-                    "timestamp"    to System.currentTimeMillis()
+                    "sourceType"    to if (isMessaging) "messaging" else "content",
+                    "concernLevel"  to concernLevel.name,
+                    "message"       to categories.split("|")
+                                        .filter { it.isNotEmpty() }
+                                        .joinToString(", ") { categoryLabel(it) },
+                    "timestamp"     to System.currentTimeMillis()
                 ))
                 .await()
             Log.d(TAG, "Alerta trimisa Firestore: $categories ($sourceApp)")
@@ -182,4 +187,29 @@ object ContentAnalyzer {
             Log.e(TAG, "Eroare la trimitere alerta: ${it.message}")
         }
     }
+}
+
+fun categoryLabel(raw: String): String = when (raw.uppercase()) {
+    "SPORT_MISCARE"          -> "Sport & mișcare"
+    "DANS"                   -> "Dans"
+    "ARTA_CREATIVITATE"      -> "Artă & creativitate"
+    "MUZICA"                 -> "Muzică"
+    "GAMING"                 -> "Gaming"
+    "EDUCATIE"               -> "Educație"
+    "UMOR_ENTERTAINMENT"     -> "Umor & entertainment"
+    "LIFESTYLE_FASHION"      -> "Lifestyle & fashion"
+    "MANCARE_GATIT"          -> "Mâncare & gătit"
+    "ANIMALE"                -> "Animale"
+    "CALATORIE"              -> "Călătorie"
+    "TEHNOLOGIE"             -> "Tehnologie"
+    "RELATII_ROMANTICE"      -> "Relații romantice"
+    "CONTINUT_ADULT"         -> "Conținut adult"
+    "BULLYING_AGRESIVITATE"  -> "Bullying / agresivitate"
+    "DEPRESIE_ANXIETATE"     -> "Depresie / anxietate"
+    "AUTOMUTILARE"           -> "Automutilare"
+    "IZOLARE_SOCIALA"        -> "Izolare socială"
+    "GROOMING_PERICOL"       -> "Pericol online (grooming)"
+    "DROGURI_ALCOOL"         -> "Droguri / alcool"
+    "VIOLENTA"               -> "Violență"
+    else                     -> raw.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
 }

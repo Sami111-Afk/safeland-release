@@ -42,11 +42,13 @@ import com.sol.dopaminetrap.worker.DailyWellbeingWorker
 import com.sol.dopaminetrap.DopamineFcmService
 import com.sol.dopaminetrap.worker.WeeklyReportWorker
 import com.sol.dopaminetrap.FirebaseRepository
+import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -72,6 +74,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if (Firebase.auth.currentUser == null) {
+            CoroutineScope(Dispatchers.IO).launch {
+                runCatching { Firebase.auth.signInAnonymously().await() }
+            }
+        }
         WeeklyReportWorker.schedule(this)
         DailyWellbeingWorker.schedule(this)
         SessionTracker.init(this)

@@ -2,6 +2,7 @@ package com.sol.dopaminetrap
 
 import android.content.Context
 import android.util.Log
+import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.ktx.firestore
@@ -18,6 +19,12 @@ object FirebaseRepository {
     private const val DOC_SETTINGS = "settings"
 
     private var listenerRegistration: ListenerRegistration? = null
+
+    private suspend fun ensureAuth() {
+        if (Firebase.auth.currentUser == null) {
+            runCatching { Firebase.auth.signInAnonymously().await() }
+        }
+    }
 
     var currentSettings: FamilySettings = FamilySettings()
         private set
@@ -65,11 +72,13 @@ object FirebaseRepository {
     // ── Settings ──────────────────────────────────────────────────────────────
 
     suspend fun pushSettings(familyId: String, childId: String, settings: FamilySettings) {
+        ensureAuth()
         settingsRef(familyId, childId).set(settings.toMap()).await()
         currentSettings = settings
     }
 
     suspend fun fetchSettings(familyId: String, childId: String): FamilySettings {
+        ensureAuth()
         val snapshot = settingsRef(familyId, childId).get().await()
         if (!snapshot.exists()) return FamilySettings()
         return FamilySettings.fromMap(snapshot.data ?: return FamilySettings())
@@ -78,6 +87,7 @@ object FirebaseRepository {
     // ── Children list (pentru UI-ul parintelui) ───────────────────────────────
 
     suspend fun fetchChildren(familyId: String): List<ChildInfo> {
+        ensureAuth()
         val snapshot = Firebase.firestore
             .collection("families").document(familyId)
             .collection("children")
@@ -92,6 +102,7 @@ object FirebaseRepository {
     // ── Rapoarte ──────────────────────────────────────────────────────────────
 
     suspend fun fetchReports(familyId: String, childId: String): List<Map<String, Any>> {
+        ensureAuth()
         val snapshot = childRef(familyId, childId)
             .collection("reports")
             .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
@@ -104,6 +115,7 @@ object FirebaseRepository {
     // ── Alerte recente ────────────────────────────────────────────────────────
 
     suspend fun fetchRecentAlerts(familyId: String, childId: String): List<Map<String, Any>> {
+        ensureAuth()
         val snapshot = childRef(familyId, childId)
             .collection("alerts")
             .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
@@ -124,6 +136,7 @@ object FirebaseRepository {
     }
 
     suspend fun fetchWellbeingProfile(familyId: String, childId: String): WellbeingProfile? {
+        ensureAuth()
         val snapshot = childRef(familyId, childId)
             .collection("wellbeing")
             .document("latest")
@@ -133,7 +146,56 @@ object FirebaseRepository {
         return runCatching { WellbeingCalculator.fromMap(snapshot.data ?: return null) }.getOrNull()
     }
 
-    // ── Inregistrare copil in Firestore (la onboarding copil) ─────────────────
+    // ── Generare cod pairing (pentru reconectare de pe telefonul copilului) ───
+
+    suspend fun generatePairingCode(familyId: String, childId: String, childName: String): String {
+        val code = (100000..999999).random().toString()
+        Firebase.firestore.collection("pairing").document(code).set(
+            mapOf(
+                "familyId"  to familyId,
+                "childId"   to childId,
+                "childName" to childName,
+                "createdAt" to System.currentTimeMillis()
+            )
+        ).await()
+        return code
+    }
+
+    // ── Feedback suport ───────────────────────────────────────────────────────
+
+    suspend fun submitFeedback(familyId: String, childId: String, category: String, message: String) {
+        Firebase.firestore
+            .collection("feedback")
+            .add(mapOf(
+                "familyId"  to familyId,
+                "childId"   to childId,
+                "category"  to category,
+                "message"   to message,
+                "timestamp" to System.currentTimeMillis()
+            ))
+            .await()
+    }
+
+    // ── Inregistrare / eliminare copil ────────────────────────────────────────
+
+    suspend fun removeChild(familyId: String, childId: String) {
+        childRef(familyId, childId).delete().await()
+    }
+
+    suspend fun addChildFromPairingCode(parentFamilyId: String, code: String): ChildInfo {
+        val doc = Firebase.firestore.collection("pairing").document(code).get().await()
+        if (!doc.exists()) throw Exception("Cod invalid sau expirat.")
+        val createdAt = doc.getLong("createdAt") ?: 0L
+        if (System.currentTimeMillis() - createdAt > 15 * 60 * 1000L)
+            throw Exception("Codul a expirat. Generează unul nou de pe telefonul copilului.")
+        val childId   = doc.getString("childId")   ?: throw Exception("Date corupte.")
+        val childName = doc.getString("childName") ?: "Copil"
+        registerChild(parentFamilyId, childId, childName)
+        // Semnalează copilului să folosească familyId-ul părintelui
+        Firebase.firestore.collection("pairing").document(code)
+            .update("resolvedFamilyId", parentFamilyId).await()
+        return ChildInfo(childId, childName)
+    }
 
     suspend fun registerChild(familyId: String, childId: String, childName: String) {
         childRef(familyId, childId).set(mapOf("name" to childName)).await()
