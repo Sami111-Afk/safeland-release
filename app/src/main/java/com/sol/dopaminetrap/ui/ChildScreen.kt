@@ -168,8 +168,51 @@ fun ChildScreen(
                 }
             }
 
+            // Indicator discret dacă lipsesc permisiuni (copilul e îndrumat spre Setări)
+            val permsMissing = !isAccessibilityEnabled() || !isNotificationListenerEnabled()
+            if (permsMissing) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape    = RoundedCornerShape(12.dp),
+                    colors   = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("⚠️", fontSize = 18.sp)
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "Protecția nu este completă",
+                                style      = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color      = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Text(
+                                "Cere ajutorul părintelui tău → Setări",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+            }
+
             // Secțiunea ascunsă — necesită PIN dacă lockEnabled
             if (showHiddenSection) {
+                // Permisiuni
+                PermissionsCard(
+                    a11yEnabled  = isAccessibilityEnabled(),
+                    notifEnabled = isNotificationListenerEnabled(),
+                    smsEnabled   = hasSmsPermission(),
+                    onOpenA11y   = onOpenAccessibilitySettings,
+                    onOpenNotif  = onOpenNotificationSettings,
+                    onRequestSms = { onRequestSmsPermission() }
+                )
+
                 // Oprire VPN
                 val ctx = LocalContext.current
                 Button(
