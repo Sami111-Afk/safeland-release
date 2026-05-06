@@ -13,14 +13,29 @@ enum class ProtectedApp(
         "protect_tiktok"
     ),
     INSTAGRAM(
-        "Instagram",
+        "Instagram (feed)",
         listOf("com.instagram.android"),
         "protect_instagram"
+    ),
+    INSTAGRAM_REELS(
+        "Instagram Reels",
+        listOf("com.instagram.android"),
+        "protect_instagram_reels"
     ),
     YOUTUBE_SHORTS(
         "YouTube Shorts",
         listOf("com.google.android.youtube"),
         "protect_youtube_shorts"
+    ),
+    YOUTUBE(
+        "YouTube (video normal)",
+        listOf("com.google.android.youtube"),
+        "protect_youtube"
+    ),
+    FACEBOOK(
+        "Facebook",
+        listOf("com.facebook.katana", "com.facebook.android"),
+        "protect_facebook"
     )
 }
 

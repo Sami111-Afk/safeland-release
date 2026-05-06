@@ -82,94 +82,159 @@ fun ChildScreen(
         return
     }
 
-    var a11yEnabled by remember { mutableStateOf(isAccessibilityEnabled()) }
-    var notifEnabled by remember { mutableStateOf(isNotificationListenerEnabled()) }
-    var smsEnabled   by remember { mutableStateOf(hasSmsPermission()) }
+    val vpnActive = DopamineVpnService.instance != null
 
+    // Refresh VPN state on resume
+    var vpnActiveState by remember { mutableStateOf(vpnActive) }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                a11yEnabled  = isAccessibilityEnabled()
-                notifEnabled = isNotificationListenerEnabled()
-                smsEnabled   = hasSmsPermission()
+                vpnActiveState = DopamineVpnService.instance != null
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    var appStates by remember {
-        mutableStateOf(ProtectedApp.entries.associateWith { SettingsManager.isEnabled(context, it) })
-    }
+    // PIN dialog state (pentru acces setări ascunse)
+    var showPinDialog     by remember { mutableStateOf(false) }
+    var showHiddenSection by remember { mutableStateOf(false) }
 
-    val allPermissionsOk = a11yEnabled && notifEnabled
+    if (showPinDialog) {
+        PinAccessDialog(
+            correctPin = settings.lockCode.ifEmpty { null },
+            onSuccess  = { showHiddenSection = true; showPinDialog = false },
+            onDismiss  = { showPinDialog = false }
+        )
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
-        // ── Header gradient ───────────────────────────────────────────────────
-        ShieldHeader(isActive = allPermissionsOk)
+        ShieldHeader(isActive = vpnActiveState)
 
         Column(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(8.dp))
 
-            // ── Status permisiuni ─────────────────────────────────────────────
-            PermissionsCard(
-                a11yEnabled  = a11yEnabled,
-                notifEnabled = notifEnabled,
-                smsEnabled   = smsEnabled,
-                onOpenA11y   = onOpenAccessibilitySettings,
-                onOpenNotif  = onOpenNotificationSettings,
-                onRequestSms = { onRequestSmsPermission(); smsEnabled = hasSmsPermission() }
-            )
-
-            // ── Aplicații protejate ───────────────────────────────────────────
-            ProtectedAppsCard(
-                appStates = appStates,
-                onToggle = { app, enabled ->
-                    SettingsManager.setEnabled(context, app, enabled)
-                    appStates = appStates + (app to enabled)
-                    if (app == ProtectedApp.YOUTUBE_SHORTS && !enabled) {
-                        DopamineVpnService.isYoutubeShortsActive.set(false)
-                    }
-                    DopamineVpnService.instance?.rebuildTunnel()
-                }
-            )
-
-            // ── VPN Button ────────────────────────────────────────────────────
-            Button(
-                onClick = onStartVpn,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(58.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (allPermissionsOk) BrandIndigo else MaterialTheme.colorScheme.surfaceVariant
+            // Mesaj simplu pentru copil
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape    = RoundedCornerShape(16.dp),
+                colors   = CardDefaults.cardColors(
+                    containerColor = if (vpnActiveState)
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.surfaceVariant
                 )
             ) {
-                Text(
-                    if (DopamineVpnService.instance != null) "Protecție activă — Repornește"
-                    else "Pornește protecția",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Column(
+                    modifier = Modifier.padding(20.dp).fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        if (vpnActiveState) "Ești protejat 🛡️" else "Protecția nu este activă",
+                        style      = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        textAlign  = TextAlign.Center
+                    )
+                    Text(
+                        if (vpnActiveState)
+                            "Safeland funcționează în fundal. Nu trebuie să faci nimic."
+                        else
+                            "Apasă butonul de mai jos pentru a porni protecția.",
+                        style     = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                        color     = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
-            // ── Dev tools ─────────────────────────────────────────────────────
-            PairingCodeCard()
+            if (!vpnActiveState) {
+                Button(
+                    onClick  = { onStartVpn(); vpnActiveState = true },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape    = RoundedCornerShape(14.dp),
+                    colors   = ButtonDefaults.buttonColors(containerColor = BrandIndigo)
+                ) {
+                    Text("Pornește protecția", style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold)
+                }
+            }
 
-            if (BuildConfig.DEBUG) {
-                DevToolsSection()
+            // Secțiunea ascunsă (pairing code + dev tools) — necesită PIN dacă lockEnabled
+            if (showHiddenSection) {
+                PairingCodeCard()
+                if (BuildConfig.DEBUG) {
+                    DevToolsSection()
+                }
+                TextButton(onClick = { showHiddenSection = false }) {
+                    Text("Închide setările", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else {
+                // Link discret în josul ecranului
+                Spacer(Modifier.height(32.dp))
+                TextButton(onClick = { showPinDialog = true }) {
+                    Text("Setări", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                }
             }
 
             Spacer(Modifier.height(16.dp))
         }
     }
+}
+
+@Composable
+private fun PinAccessDialog(
+    correctPin: String?,
+    onSuccess: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var pin   by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Cod de acces") },
+        text  = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value         = pin,
+                    onValueChange = {
+                        if (it.length <= 4 && it.all { c -> c.isDigit() }) {
+                            pin = it; error = false
+                        }
+                    },
+                    label           = { Text("PIN 4 cifre") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    singleLine      = true,
+                    isError         = error
+                )
+                if (error) Text("Cod incorect.", color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.labelSmall)
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = pin.length == 4,
+                onClick = {
+                    if (correctPin == null || pin == correctPin) onSuccess()
+                    else { error = true; pin = "" }
+                }
+            ) { Text("OK") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Anulează") }
+        }
+    )
 }
 
 // ── Shield header ─────────────────────────────────────────────────────────────

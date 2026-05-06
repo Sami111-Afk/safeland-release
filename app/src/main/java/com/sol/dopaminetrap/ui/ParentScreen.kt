@@ -458,35 +458,34 @@ private fun ControlTab(familyId: String, child: ChildInfo) {
                     color      = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(12.dp))
-                AppLimitRow(
-                    label         = "TikTok",
-                    enabled       = settings.tiktokEnabled,
-                    limitMinutes  = settings.tiktokLimitMinutes,
-                    onToggle      = { settings = settings.copy(tiktokEnabled = it) },
-                    onLimitChange = { settings = settings.copy(tiktokLimitMinutes = it) }
-                )
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 8.dp),
-                    color    = MaterialTheme.colorScheme.outline.copy(0.4f)
-                )
-                AppLimitRow(
-                    label         = "Instagram",
-                    enabled       = settings.instagramEnabled,
-                    limitMinutes  = settings.instagramLimitMinutes,
-                    onToggle      = { settings = settings.copy(instagramEnabled = it) },
-                    onLimitChange = { settings = settings.copy(instagramLimitMinutes = it) }
-                )
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 8.dp),
-                    color    = MaterialTheme.colorScheme.outline.copy(0.4f)
-                )
-                AppLimitRow(
-                    label         = "YouTube Shorts",
-                    enabled       = settings.youtubeShortsEnabled,
-                    limitMinutes  = settings.youtubeShortsLimitMinutes,
-                    onToggle      = { settings = settings.copy(youtubeShortsEnabled = it) },
-                    onLimitChange = { settings = settings.copy(youtubeShortsLimitMinutes = it) }
-                )
+                AppLimitRow("TikTok", settings.tiktokEnabled, settings.tiktokLimitMinutes,
+                    { settings = settings.copy(tiktokEnabled = it) },
+                    { settings = settings.copy(tiktokLimitMinutes = it) })
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.outline.copy(0.4f))
+                AppLimitRow("Instagram (feed)", settings.instagramEnabled, settings.instagramLimitMinutes,
+                    { settings = settings.copy(instagramEnabled = it) },
+                    { settings = settings.copy(instagramLimitMinutes = it) })
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.outline.copy(0.4f))
+                AppLimitRow("Instagram Reels", settings.instagramReelsEnabled, settings.instagramReelsLimitMinutes,
+                    { settings = settings.copy(instagramReelsEnabled = it) },
+                    { settings = settings.copy(instagramReelsLimitMinutes = it) })
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.outline.copy(0.4f))
+                AppLimitRow("YouTube Shorts", settings.youtubeShortsEnabled, settings.youtubeShortsLimitMinutes,
+                    { settings = settings.copy(youtubeShortsEnabled = it) },
+                    { settings = settings.copy(youtubeShortsLimitMinutes = it) })
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.outline.copy(0.4f))
+                AppLimitRow("YouTube (video normal)", settings.youtubeEnabled, settings.youtubeLimitMinutes,
+                    { settings = settings.copy(youtubeEnabled = it) },
+                    { settings = settings.copy(youtubeLimitMinutes = it) })
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.outline.copy(0.4f))
+                AppLimitRow("Facebook", settings.facebookEnabled, settings.facebookLimitMinutes,
+                    { settings = settings.copy(facebookEnabled = it) },
+                    { settings = settings.copy(facebookLimitMinutes = it) })
             }
         }
 

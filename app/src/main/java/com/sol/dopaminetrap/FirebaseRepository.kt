@@ -213,17 +213,23 @@ object FirebaseRepository {
     private fun applySettingsToChild(context: Context, settings: FamilySettings) {
         currentSettings = settings
 
-        SettingsManager.setEnabled(context, ProtectedApp.TIKTOK, settings.tiktokEnabled)
-        SettingsManager.setEnabled(context, ProtectedApp.INSTAGRAM, settings.instagramEnabled)
-        SettingsManager.setEnabled(context, ProtectedApp.YOUTUBE_SHORTS, settings.youtubeShortsEnabled)
+        SettingsManager.setEnabled(context, ProtectedApp.TIKTOK,           settings.tiktokEnabled)
+        SettingsManager.setEnabled(context, ProtectedApp.INSTAGRAM,         settings.instagramEnabled)
+        SettingsManager.setEnabled(context, ProtectedApp.INSTAGRAM_REELS,   settings.instagramReelsEnabled)
+        SettingsManager.setEnabled(context, ProtectedApp.YOUTUBE_SHORTS,    settings.youtubeShortsEnabled)
+        SettingsManager.setEnabled(context, ProtectedApp.YOUTUBE,           settings.youtubeEnabled)
+        SettingsManager.setEnabled(context, ProtectedApp.FACEBOOK,          settings.facebookEnabled)
 
         DopamineVpnService.burstBytes.set(settings.burstSizeKb * 1024L)
         DopamineVpnService.pauseMs.set(settings.pauseDurationMs)
 
         SessionTracker.setLimits(
-            tiktokMin         = settings.tiktokLimitMinutes,
-            instagramMin      = settings.instagramLimitMinutes,
-            youtubeShortsMin  = settings.youtubeShortsLimitMinutes
+            tiktokMin          = settings.tiktokLimitMinutes,
+            instagramMin       = settings.instagramLimitMinutes,
+            instagramReelsMin  = settings.instagramReelsLimitMinutes,
+            youtubeShortsMin   = settings.youtubeShortsLimitMinutes,
+            youtubeMin         = settings.youtubeLimitMinutes,
+            facebookMin        = settings.facebookLimitMinutes
         )
 
         DopamineVpnService.instance?.rebuildTunnel()

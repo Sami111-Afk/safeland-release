@@ -169,9 +169,12 @@ class DopamineVpnService : VpnService(), Runnable {
             .filter { app ->
                 val enabled = SettingsManager.isEnabled(this, app)
                 when (app) {
-                    ProtectedApp.YOUTUBE_SHORTS -> enabled && isYoutubeShortsActive.get()
-                    ProtectedApp.TIKTOK        -> enabled && isTikTokForeground.get()
-                    ProtectedApp.INSTAGRAM     -> enabled && isInstagramForeground.get()
+                    ProtectedApp.YOUTUBE_SHORTS    -> enabled && isYoutubeShortsActive.get()
+                    ProtectedApp.TIKTOK            -> enabled && isTikTokForeground.get()
+                    ProtectedApp.INSTAGRAM         -> enabled && isInstagramForeground.get()
+                    ProtectedApp.INSTAGRAM_REELS   -> enabled && isInstagramForeground.get()
+                    ProtectedApp.YOUTUBE           -> enabled
+                    ProtectedApp.FACEBOOK          -> enabled
                 }
             }
             .flatMap { it.packages }
@@ -483,16 +486,10 @@ class DopamineVpnService : VpnService(), Runnable {
             val chan = NotificationChannel(CHANNEL_ID, "Safeland", NotificationManager.IMPORTANCE_LOW)
             getSystemService(NotificationManager::class.java).createNotificationChannel(chan)
         }
-        val stopPi = PendingIntent.getService(
-            this, 0,
-            Intent(this, DopamineVpnService::class.java).apply { action = ACTION_STOP },
-            PendingIntent.FLAG_IMMUTABLE
-        )
         val notif = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Safeland: Activ")
-            .setContentText("TikTok/Instagram: mereu | YouTube Shorts: la detectie")
+            .setContentText("Protecție activă")
             .setSmallIcon(android.R.drawable.ic_lock_lock)
-            .addAction(0, "STOP", stopPi)
             .setOngoing(true)
             .build()
 
