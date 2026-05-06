@@ -65,6 +65,11 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { /* rezultatul e verificat live in UI */ }
 
+    // Launcher separat pentru cererea automată la lansare (fără side-effects)
+    private val startupPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { /* grant/deny — UI-ul se actualizează singur la resume */ }
+
     private val vpnPrepareLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -74,6 +79,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        requestStartupPermissions()
         if (Firebase.auth.currentUser == null) {
             CoroutineScope(Dispatchers.IO).launch {
                 runCatching { Firebase.auth.signInAnonymously().await() }
@@ -148,6 +154,32 @@ class MainActivity : ComponentActivity() {
             }
             getSystemService(android.app.NotificationManager::class.java)
                 .createNotificationChannel(channel)
+        }
+    }
+
+    private fun requestStartupPermissions() {
+        val needed = mutableListOf<String>()
+
+        // Notificări — necesare atât la parinte (FCM alerte) cât și la copil (VPN notif)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            needed += Manifest.permission.POST_NOTIFICATIONS
+        }
+
+        // SMS — necesar doar pe telefonul copilului
+        val mode = OnboardingManager.getMode(this)
+        val isChildOrUnknown = mode == null || mode == OnboardingManager.DeviceMode.CHILD
+        if (isChildOrUnknown) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                needed += Manifest.permission.RECEIVE_SMS
+                needed += Manifest.permission.READ_SMS
+            }
+        }
+
+        if (needed.isNotEmpty()) {
+            startupPermissionLauncher.launch(needed.toTypedArray())
         }
     }
 
