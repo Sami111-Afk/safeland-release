@@ -10,6 +10,9 @@ import com.google.firebase.ktx.Firebase
 import com.sol.dopaminetrap.analysis.WellbeingCalculator
 import com.sol.dopaminetrap.data.FamilySettings
 import com.sol.dopaminetrap.data.WellbeingProfile
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.tasks.await
 
 data class ChildInfo(val childId: String, val childName: String)
@@ -26,8 +29,12 @@ object FirebaseRepository {
         }
     }
 
-    var currentSettings: FamilySettings = FamilySettings()
-        private set
+    private val _settingsFlow = MutableStateFlow(FamilySettings())
+    val settingsFlow: StateFlow<FamilySettings> = _settingsFlow.asStateFlow()
+
+    var currentSettings: FamilySettings
+        get() = _settingsFlow.value
+        private set(value) { _settingsFlow.value = value }
 
     // ── Path helpers ──────────────────────────────────────────────────────────
 

@@ -5,6 +5,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import com.sol.dopaminetrap.analysis.ContentAnalyzer
+import com.sol.dopaminetrap.FirebaseRepository
 
 /**
  * Ascultă notificările de la aplicații de mesagerie.
@@ -30,6 +31,7 @@ class DopamineNotificationService : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
+        if (!FirebaseRepository.currentSettings.messagingMonitorEnabled) return
         val pkg = sbn.packageName ?: return
         val appName = MONITORED_PACKAGES[pkg] ?: return
 

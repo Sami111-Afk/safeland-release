@@ -6,10 +6,12 @@ import android.content.Intent
 import android.provider.Telephony
 import android.util.Log
 import com.sol.dopaminetrap.analysis.ContentAnalyzer
+import com.sol.dopaminetrap.FirebaseRepository
 
 class SmsBroadcastReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
+        if (!FirebaseRepository.currentSettings.smsMonitorEnabled) return
         if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
 
         val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent) ?: return

@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.sol.dopaminetrap.FirebaseRepository
 import com.sol.dopaminetrap.OnboardingManager
 import com.sol.dopaminetrap.data.AppDatabase
 import com.sol.dopaminetrap.data.ConcernLevel
@@ -55,6 +56,7 @@ object ContentAnalyzer {
     private val messagingContext = ConcurrentHashMap<String, LinkedList<String>>()
 
     fun analyze(context: Context, text: String, sourceApp: String) {
+        if (!FirebaseRepository.currentSettings.contentDetectionEnabled) return
         if (text.isBlank()) return
 
         // Pre-filtrare: minim MIN_WORD_COUNT cuvinte
@@ -131,12 +133,19 @@ object ContentAnalyzer {
         isMessaging: Boolean,
         now: Long
     ) {
-        // Mesagerie: contam HIGH + CRITICAL (bullying poate fi HIGH)
-        // Content: contam doar CRITICAL
-        val shouldCount = if (isMessaging)
-            concernLevel == ConcernLevel.CRITICAL || concernLevel == ConcernLevel.HIGH
-        else
-            concernLevel == ConcernLevel.CRITICAL
+        val childAge = OnboardingManager.getChildAge(context)
+        val shouldCount = if (isMessaging) {
+            when {
+                childAge <= 12 -> concernLevel.ordinal >= ConcernLevel.MEDIUM.ordinal
+                childAge >= 16 -> concernLevel == ConcernLevel.CRITICAL
+                else           -> concernLevel == ConcernLevel.CRITICAL || concernLevel == ConcernLevel.HIGH
+            }
+        } else {
+            when {
+                childAge <= 12 -> concernLevel == ConcernLevel.CRITICAL || concernLevel == ConcernLevel.HIGH
+                else           -> concernLevel == ConcernLevel.CRITICAL
+            }
+        }
 
         if (!shouldCount) return
 

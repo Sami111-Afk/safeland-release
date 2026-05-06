@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,9 +43,13 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.sol.dopaminetrap.*
 import com.sol.dopaminetrap.BuildConfig
+import com.sol.dopaminetrap.FirebaseRepository
 import com.sol.dopaminetrap.ui.theme.BrandIndigo
 import com.sol.dopaminetrap.ui.theme.StatusGreen
 import com.sol.dopaminetrap.ui.theme.StatusRed
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 
 @Composable
 fun ChildScreen(
@@ -59,6 +64,23 @@ fun ChildScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    // ── Observe settings for app lock / disable ───────────────────────────────
+    val settings by FirebaseRepository.settingsFlow.collectAsStateWithLifecycle()
+    var pinUnlocked by remember { mutableStateOf(false) }
+
+    if (!settings.appEnabled) {
+        AppDisabledScreen()
+        return
+    }
+
+    if (settings.lockEnabled && !pinUnlocked) {
+        PinLockScreen(
+            correctPin = settings.lockCode,
+            onUnlocked = { pinUnlocked = true }
+        )
+        return
+    }
 
     var a11yEnabled by remember { mutableStateOf(isAccessibilityEnabled()) }
     var notifEnabled by remember { mutableStateOf(isNotificationListenerEnabled()) }
@@ -618,4 +640,99 @@ private fun BatteryMonitorCard() {
         style = MaterialTheme.typography.bodySmall,
         color = if (unsupported) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
     )
+}
+
+// ── Overlay app dezactivată ───────────────────────────────────────────────────
+
+@Composable
+fun AppDisabledScreen() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.errorContainer),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(40.dp)
+        ) {
+            Text("🔒", fontSize = 64.sp)
+            Text(
+                "Aplicația a fost dezactivată",
+                style      = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                textAlign  = TextAlign.Center,
+                color      = MaterialTheme.colorScheme.onErrorContainer
+            )
+            Text(
+                "Părintele tău a dezactivat temporar accesul. Vorbește cu el dacă crezi că e o greșeală.",
+                style     = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                color     = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+            )
+        }
+    }
+}
+
+// ── Ecran PIN lock ────────────────────────────────────────────────────────────
+
+@Composable
+fun PinLockScreen(correctPin: String, onUnlocked: () -> Unit) {
+    var pin   by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            modifier = Modifier.padding(40.dp)
+        ) {
+            Text("🔐", fontSize = 56.sp)
+            Text(
+                "Introdu codul PIN",
+                style      = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                textAlign  = TextAlign.Center
+            )
+            Text(
+                "Codul PIN l-ai primit de la părintele tău.",
+                style     = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                color     = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            OutlinedTextField(
+                value         = pin,
+                onValueChange = {
+                    if (it.length <= 4 && it.all { c -> c.isDigit() }) {
+                        pin   = it
+                        error = false
+                    }
+                },
+                label           = { Text("PIN 4 cifre") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                singleLine      = true,
+                isError         = error,
+                supportingText  = if (error) {{ Text("Cod incorect. Încearcă din nou.") }} else null,
+                modifier        = Modifier.fillMaxWidth()
+            )
+
+            Button(
+                onClick = {
+                    if (pin == correctPin) onUnlocked()
+                    else { error = true; pin = "" }
+                },
+                enabled  = pin.length == 4,
+                modifier = Modifier.fillMaxWidth().height(52.dp)
+            ) {
+                Text("Deblochează", style = MaterialTheme.typography.titleMedium)
+            }
+        }
+    }
 }

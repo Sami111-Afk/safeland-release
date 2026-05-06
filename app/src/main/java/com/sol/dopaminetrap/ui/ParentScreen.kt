@@ -492,6 +492,8 @@ private fun ControlTab(familyId: String, child: ChildInfo) {
 
         ThrottleAdvancedPanel(settings = settings, onSettingsChange = { settings = it })
 
+        FeatureTogglesCard(settings = settings, onSettingsChange = { settings = it })
+
         Button(
             onClick = {
                 isSaving    = true
@@ -736,6 +738,117 @@ private fun ModernReportCard(report: Map<String, Any>) {
 // ── Tab 4: Familie ────────────────────────────────────────────────────────────
 
 @Composable
+private fun ChildControlCard(familyId: String, child: ChildInfo) {
+    val scope = rememberCoroutineScope()
+    var settings    by remember(child.childId) { mutableStateOf(FamilySettings()) }
+    var isLoading   by remember(child.childId) { mutableStateOf(true) }
+    var isSaving    by remember { mutableStateOf(false) }
+
+    LaunchedEffect(child.childId) {
+        isLoading = true
+        settings  = FirebaseRepository.fetchSettings(familyId, child.childId)
+        isLoading = false
+    }
+
+    fun save(updated: FamilySettings) {
+        settings = updated
+        isSaving = true
+        scope.launch {
+            runCatching { FirebaseRepository.pushSettings(familyId, child.childId, updated) }
+            isSaving = false
+        }
+    }
+
+    Card(
+        modifier  = Modifier.fillMaxWidth(),
+        shape     = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(2.dp),
+        colors    = CardDefaults.cardColors(
+            containerColor = if (!settings.appEnabled)
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
+            else MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                "Control aplicație — ${child.childName}",
+                style      = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(12.dp))
+
+            if (isLoading) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            } else {
+                // Activare/dezactivare app
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment     = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Aplicație activă", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            if (settings.appEnabled) "Copilul poate folosi aplicația"
+                            else "Aplicația este blocată pe telefonul copilului",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (settings.appEnabled) MaterialTheme.colorScheme.onSurfaceVariant
+                                    else MaterialTheme.colorScheme.error
+                        )
+                    }
+                    Switch(
+                        checked         = settings.appEnabled,
+                        onCheckedChange = { save(settings.copy(appEnabled = it)) },
+                        enabled         = !isSaving,
+                        colors          = SwitchDefaults.colors(checkedTrackColor = BrandIndigo)
+                    )
+                }
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    color    = MaterialTheme.colorScheme.outline.copy(0.2f)
+                )
+
+                // Blocare cu cod PIN
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment     = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Blocare cu cod PIN", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            if (settings.lockEnabled && settings.lockCode.isNotEmpty())
+                                "Cod activ: ${settings.lockCode}"
+                            else "Copilul poate intra liber",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (settings.lockEnabled) BrandIndigo
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontFamily = if (settings.lockEnabled && settings.lockCode.isNotEmpty())
+                                FontFamily.Monospace else FontFamily.Default
+                        )
+                    }
+                    Switch(
+                        checked = settings.lockEnabled,
+                        onCheckedChange = { enabled ->
+                            val newCode = if (enabled) (1000..9999).random().toString() else ""
+                            save(settings.copy(lockEnabled = enabled, lockCode = newCode))
+                        },
+                        enabled = !isSaving,
+                        colors  = SwitchDefaults.colors(checkedTrackColor = BrandIndigo)
+                    )
+                }
+
+                if (isSaving) {
+                    Spacer(Modifier.height(8.dp))
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun FamilieTab(
     familyId: String,
     children: List<ChildInfo>,
@@ -880,6 +993,11 @@ private fun FamilieTab(
             ) {
                 Text("+ Adaugă copil", style = MaterialTheme.typography.labelSmall)
             }
+        }
+
+        // ── Control per copil ────────────────────────────────────────────────
+        children.forEach { child ->
+            ChildControlCard(familyId = familyId, child = child)
         }
 
         // ── Lista copii ───────────────────────────────────────────────────────
@@ -1091,6 +1209,92 @@ private fun SupportTab(familyId: String, childId: String) {
         }
 
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+// ── Card toggleuri funcționalități ───────────────────────────────────────────
+
+@Composable
+private fun FeatureTogglesCard(
+    settings: FamilySettings,
+    onSettingsChange: (FamilySettings) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier  = Modifier.fillMaxWidth(),
+        shape     = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        "Monitorizare & funcționalități",
+                        style      = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Activează sau dezactivează fiecare funcție",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Text(if (expanded) "▲" else "▼", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            if (expanded) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color    = MaterialTheme.colorScheme.outline.copy(0.3f)
+                )
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    ToggleRow("Detectie conținut (AI)", settings.contentDetectionEnabled) {
+                        onSettingsChange(settings.copy(contentDetectionEnabled = it))
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(0.2f))
+                    ToggleRow("Monitor mesagerie (WhatsApp, Telegram…)", settings.messagingMonitorEnabled) {
+                        onSettingsChange(settings.copy(messagingMonitorEnabled = it))
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(0.2f))
+                    ToggleRow("Monitor SMS", settings.smsMonitorEnabled) {
+                        onSettingsChange(settings.copy(smsMonitorEnabled = it))
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(0.2f))
+                    ToggleRow("Rapoarte săptămânale", settings.weeklyReportEnabled) {
+                        onSettingsChange(settings.copy(weeklyReportEnabled = it))
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(0.2f))
+                    ToggleRow("Notificări alerte", settings.alertNotificationsEnabled) {
+                        onSettingsChange(settings.copy(alertNotificationsEnabled = it))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ToggleRow(label: String, checked: Boolean, onToggle: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment     = Alignment.CenterVertically
+    ) {
+        Text(label, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+        Switch(
+            checked         = checked,
+            onCheckedChange = onToggle,
+            colors          = SwitchDefaults.colors(checkedTrackColor = BrandIndigo)
+        )
     }
 }
 

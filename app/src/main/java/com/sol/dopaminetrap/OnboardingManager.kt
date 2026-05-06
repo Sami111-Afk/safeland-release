@@ -9,6 +9,7 @@ object OnboardingManager {
     private const val KEY_CHILD_ID = "child_id"
     private const val KEY_CHILD_NAME = "child_name"
     private const val KEY_DONE = "onboarding_done"
+    private const val KEY_CHILD_AGE = "child_age"
 
     enum class DeviceMode { PARENT, CHILD }
 
@@ -29,12 +30,16 @@ object OnboardingManager {
     fun getChildName(context: Context): String? =
         prefs(context).getString(KEY_CHILD_NAME, null)
 
+    fun getChildAge(context: Context): Int =
+        prefs(context).getInt(KEY_CHILD_AGE, 13)
+
     fun completeOnboarding(
         context: Context,
         mode: DeviceMode,
         familyId: String,
         childId: String,
-        childName: String
+        childName: String,
+        childAge: Int = 13
     ) {
         prefs(context).edit()
             .putBoolean(KEY_DONE, true)
@@ -42,6 +47,7 @@ object OnboardingManager {
             .putString(KEY_FAMILY_ID, familyId)
             .putString(KEY_CHILD_ID, childId)
             .putString(KEY_CHILD_NAME, childName)
+            .putInt(KEY_CHILD_AGE, childAge)
             .apply()
     }
 

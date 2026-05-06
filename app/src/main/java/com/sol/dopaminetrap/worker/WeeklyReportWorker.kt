@@ -41,6 +41,13 @@ class WeeklyReportWorker(ctx: Context, params: WorkerParameters) : CoroutineWork
 
     override suspend fun doWork(): Result {
         val db = AppDatabase.get(applicationContext)
+
+        if (!FirebaseRepository.currentSettings.weeklyReportEnabled) {
+            val cutoff = System.currentTimeMillis() - KEEP_DATA_DAYS * 24 * 60 * 60 * 1000L
+            db.contentEventDao().deleteOlderThan(cutoff)
+            return Result.success()
+        }
+
         val weekAgo = System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L
         val events = db.contentEventDao().getEventsSince(weekAgo)
 
