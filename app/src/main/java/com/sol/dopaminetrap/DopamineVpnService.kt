@@ -42,7 +42,7 @@ class DopamineVpnService : VpnService(), Runnable {
 
     companion object {
         private const val TAG = "DopamineVpn"
-        private const val CHANNEL_ID = "SafelandChannel"
+        private const val CHANNEL_ID = "SafelandSilent"
         private const val NOTIF_ID = 1
         private const val ACTION_STOP = "com.sol.dopaminetrap.STOP"
         private const val MTU = 1500
@@ -483,13 +483,21 @@ class DopamineVpnService : VpnService(), Runnable {
 
     private fun showNotification() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val chan = NotificationChannel(CHANNEL_ID, "Safeland", NotificationManager.IMPORTANCE_LOW)
+            val chan = NotificationChannel(CHANNEL_ID, "Safeland", NotificationManager.IMPORTANCE_MIN)
+                .apply {
+                    setShowBadge(false)
+                    enableVibration(false)
+                    enableLights(false)
+                }
             getSystemService(NotificationManager::class.java).createNotificationChannel(chan)
         }
         val notif = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Safeland: Activ")
+            .setContentTitle("Safeland")
             .setContentText("Protecție activă")
             .setSmallIcon(android.R.drawable.ic_lock_lock)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            .setShowWhen(false)
             .setOngoing(true)
             .build()
 
