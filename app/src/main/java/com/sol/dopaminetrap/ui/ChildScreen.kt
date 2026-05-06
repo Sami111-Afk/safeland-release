@@ -168,8 +168,26 @@ fun ChildScreen(
                 }
             }
 
-            // Secțiunea ascunsă (pairing code + dev tools) — necesită PIN dacă lockEnabled
+            // Secțiunea ascunsă — necesită PIN dacă lockEnabled
             if (showHiddenSection) {
+                // Oprire VPN
+                val ctx = LocalContext.current
+                Button(
+                    onClick = {
+                        ctx.stopService(android.content.Intent(ctx, DopamineVpnService::class.java))
+                        vpnActiveState = false
+                        showHiddenSection = false
+                    },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape    = RoundedCornerShape(14.dp),
+                    colors   = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Oprește protecția", style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold)
+                }
+
                 PairingCodeCard()
                 if (BuildConfig.DEBUG) {
                     DevToolsSection()
@@ -744,13 +762,19 @@ fun AppDisabledScreen() {
 
 @Composable
 fun PinLockScreen(correctPin: String, onUnlocked: () -> Unit) {
-    var pin   by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf(false) }
+    var pin        by remember { mutableStateOf("") }
+    var error      by remember { mutableStateOf(false) }
+    var showInput  by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface),
+            .background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    listOf(androidx.compose.ui.graphics.Color(0xFF3B4FCC),
+                           androidx.compose.ui.graphics.Color(0xFF1A237E))
+                )
+            ),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -758,45 +782,79 @@ fun PinLockScreen(correctPin: String, onUnlocked: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(20.dp),
             modifier = Modifier.padding(40.dp)
         ) {
-            Text("🔐", fontSize = 56.sp)
+            Text("🔐", fontSize = 72.sp)
             Text(
-                "Introdu codul PIN",
-                style      = MaterialTheme.typography.headlineSmall,
+                "Safeland",
+                style      = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                textAlign  = TextAlign.Center
+                color      = androidx.compose.ui.graphics.Color.White
             )
             Text(
-                "Codul PIN l-ai primit de la părintele tău.",
+                "Aplicația este blocată.",
+                style     = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
+                color     = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.9f)
+            )
+            Text(
+                "Cere codul de deblocare de la părintele tău.",
                 style     = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
-                color     = MaterialTheme.colorScheme.onSurfaceVariant
+                color     = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.7f)
             )
 
-            OutlinedTextField(
-                value         = pin,
-                onValueChange = {
-                    if (it.length <= 4 && it.all { c -> c.isDigit() }) {
-                        pin   = it
-                        error = false
-                    }
-                },
-                label           = { Text("PIN 4 cifre") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                singleLine      = true,
-                isError         = error,
-                supportingText  = if (error) {{ Text("Cod incorect. Încearcă din nou.") }} else null,
-                modifier        = Modifier.fillMaxWidth()
-            )
+            Spacer(Modifier.height(8.dp))
 
-            Button(
-                onClick = {
-                    if (pin == correctPin) onUnlocked()
-                    else { error = true; pin = "" }
-                },
-                enabled  = pin.length == 4,
-                modifier = Modifier.fillMaxWidth().height(52.dp)
-            ) {
-                Text("Deblochează", style = MaterialTheme.typography.titleMedium)
+            if (!showInput) {
+                OutlinedButton(
+                    onClick = { showInput = true },
+                    colors  = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                        contentColor = androidx.compose.ui.graphics.Color.White
+                    ),
+                    border  = androidx.compose.foundation.BorderStroke(
+                        1.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.5f)
+                    )
+                ) {
+                    Text("Am codul")
+                }
+            } else {
+                OutlinedTextField(
+                    value         = pin,
+                    onValueChange = {
+                        if (it.length <= 6 && it.all { c -> c.isDigit() }) {
+                            pin   = it
+                            error = false
+                        }
+                    },
+                    label           = { Text("Cod de deblocare", color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.7f)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    singleLine      = true,
+                    isError         = error,
+                    colors          = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor      = androidx.compose.ui.graphics.Color.White,
+                        unfocusedTextColor    = androidx.compose.ui.graphics.Color.White,
+                        focusedBorderColor    = androidx.compose.ui.graphics.Color.White,
+                        unfocusedBorderColor  = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.5f),
+                        errorBorderColor      = androidx.compose.ui.graphics.Color(0xFFFF6B6B)
+                    ),
+                    supportingText  = if (error) {{ Text("Cod incorect.", color = androidx.compose.ui.graphics.Color(0xFFFF6B6B)) }} else null,
+                    modifier        = Modifier.fillMaxWidth()
+                )
+
+                Button(
+                    onClick = {
+                        if (pin == correctPin) onUnlocked()
+                        else { error = true; pin = "" }
+                    },
+                    enabled  = pin.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    colors   = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = androidx.compose.ui.graphics.Color.White,
+                        contentColor   = androidx.compose.ui.graphics.Color(0xFF3B4FCC)
+                    )
+                ) {
+                    Text("Deblochează", style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold)
+                }
             }
         }
     }

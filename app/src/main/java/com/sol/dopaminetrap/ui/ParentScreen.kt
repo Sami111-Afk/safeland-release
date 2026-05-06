@@ -814,28 +814,67 @@ private fun ChildControlCard(familyId: String, child: ChildInfo) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment     = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Text("Blocare cu cod PIN", style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            if (settings.lockEnabled && settings.lockCode.isNotEmpty())
-                                "Cod activ: ${settings.lockCode}"
-                            else "Copilul poate intra liber",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (settings.lockEnabled) BrandIndigo
-                                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontFamily = if (settings.lockEnabled && settings.lockCode.isNotEmpty())
-                                FontFamily.Monospace else FontFamily.Default
-                        )
-                    }
+                    Text("Blocare cu cod", style = MaterialTheme.typography.bodyMedium)
                     Switch(
                         checked = settings.lockEnabled,
                         onCheckedChange = { enabled ->
-                            val newCode = if (enabled) (1000..9999).random().toString() else ""
+                            val newCode = if (enabled) (100000..999999).random().toString() else ""
                             save(settings.copy(lockEnabled = enabled, lockCode = newCode))
                         },
                         enabled = !isSaving,
                         colors  = SwitchDefaults.colors(checkedTrackColor = BrandIndigo)
                     )
+                }
+
+                // Card proeminent cu codul
+                if (settings.lockEnabled && settings.lockCode.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape    = RoundedCornerShape(14.dp),
+                        colors   = CardDefaults.cardColors(
+                            containerColor = BrandIndigo.copy(alpha = 0.10f)
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                "Cod de deblocare",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = BrandIndigo
+                            )
+                            Text(
+                                settings.lockCode,
+                                style      = MaterialTheme.typography.displaySmall.copy(
+                                    fontFamily    = FontFamily.Monospace,
+                                    letterSpacing = 8.sp
+                                ),
+                                fontWeight = FontWeight.Bold,
+                                color      = BrandIndigo
+                            )
+                            Text(
+                                "Spune-i copilului acest cod pentru a debloca aplicația.",
+                                style     = MaterialTheme.typography.labelSmall,
+                                color     = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick  = {
+                            val newCode = (100000..999999).random().toString()
+                            save(settings.copy(lockCode = newCode))
+                        },
+                        enabled  = !isSaving,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape    = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("🔄  Generează cod nou", style = MaterialTheme.typography.labelMedium)
+                    }
                 }
 
                 if (isSaving) {
