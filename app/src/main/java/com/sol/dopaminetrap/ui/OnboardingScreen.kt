@@ -163,15 +163,15 @@ fun ChildSetupScreen(onDone: (familyId: String, childId: String, childName: Stri
             Slider(
                 value = childAge.toFloat(),
                 onValueChange = { childAge = it.roundToInt() },
-                valueRange = 8f..18f,
-                steps = 9,
+                valueRange = 3f..18f,
+                steps = 14,
                 modifier = Modifier.fillMaxWidth()
             )
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("8 ani", style = MaterialTheme.typography.labelSmall,
+                Text("3 ani", style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("18 ani", style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
