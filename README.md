@@ -1,56 +1,84 @@
-# 🛡️ Safeland (formerly Dopamine Trap)
+# Safeland — Android
 
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.x-purple)
-![Android](https://img.shields.io/badge/Android-SDK_24--36-green)
+![Android](https://img.shields.io/badge/Android-API_24--36-green)
 ![Firebase](https://img.shields.io/badge/Firebase-Firestore_%7C_FCM-FFCA28)
-![TensorFlow](https://img.shields.io/badge/TensorFlow-Lite-orange)
-![Status](https://img.shields.io/badge/Status-Active_Development-brightgreen)
+![TFLite](https://img.shields.io/badge/TensorFlow-Lite-orange)
+![Status](https://img.shields.io/badge/Status-v1.0_Released-brightgreen)
 
-**Safeland** is a next-generation, privacy-first Android ecosystem designed to foster healthy digital habits for children. By combining real-time content analysis with advanced network throttling and psychological well-being metrics, Safeland provides parents with deep insights and proactive tools to protect their children from addictive patterns and harmful content.
+**Safeland** este o aplicație Android de control parental care protejează copiii de conținut adictiv și dăunător pe rețelele sociale, fără a compromite intimitatea datelor.
 
-## 🌟 What's New: The "Wellbeing" Update
-We've moved beyond simple blocking. Safeland now features a **Digital Wellbeing Engine** that analyzes usage patterns to generate a holistic health profile for the child, providing AI-powered suggestions for a more balanced digital life.
+---
 
-## 🚀 Key Features
+## Cum funcționează
 
-### 1. Digital Wellbeing & Analytics (New!)
-- **Wellbeing Profile:** Automatically calculates metrics like "Focus Score", "Social Risk", and "Consumption Quality".
-- **Session Tracking:** Precise monitoring of time spent on addictive platforms (TikTok, Instagram, YouTube Shorts).
-- **Daily Progress:** Visual tracking of how digital habits evolve over time.
+Aplicația rulează în două moduri pe dispozitive diferite:
 
-### 2. Dual Architecture & Modern UI
-- **Parent Dashboard:** Completely redesigned with a modern, tabbed interface for seamless monitoring and control.
-- **Child Mode:** A silent, battery-efficient background service.
-- **Daily Limits:** Set specific time allowances for monitored apps directly from the Parent device.
+- **Modul Copil** — serviciu VPN local care throttle-uiește TikTok, Instagram, YouTube Shorts, YouTube și Facebook pe baza limitelor de timp setate de părinte. Monitoring content prin Accessibility Service + ML on-device.
+- **Modul Părinte** — dashboard real-time cu alerte, control per-aplicație, limite de timp și rapoarte de wellbeing.
 
-### 3. Deep UI Monitoring (Accessibility Service)
-- Detects specific UI states (e.g., entering "Shorts" in YouTube).
-- Extracts visible text for real-time safety classification.
-- Intelligent foreground detection to trigger throttling only when needed.
+Cele două dispozitive se sincronizează prin Firebase Firestore. Un cod de pairing de 6 cifre conectează conturile fără a expune date personale.
 
-### 4. On-Device Machine Learning (TensorFlow Lite)
-Privacy is non-negotiable. All content analysis happens 100% on-device:
-- Classifies extracted text into risk categories: `GROOMING`, `SEXUAL_CONTENT`, `EXTREME_VIOLENCE`.
-- Data never leaves the device unless a critical alert is triggered.
+---
 
-### 5. Smart Network Throttling (Local VPN)
-- **Adaptive Latency:** Artificially degrades network performance for addictive apps based on usage limits.
-- **Burst Control:** Parents can configure how much data is allowed before a "cooldown" pause is enforced.
+## Funcționalități principale
 
-## 🏗️ Technical Stack
+| Funcție | Detalii |
+|---|---|
+| VPN throttle | Degradare adaptivă a rețelei pentru apps adictive |
+| Limite de timp | 0–120 min/zi per aplicație, alerte la 80% și 100% |
+| Content analysis | TFLite on-device: GROOMING, SEXUAL_CONTENT, EXTREME_VIOLENCE |
+| Alerte real-time | Push instant în ParentScreen via Firestore snapshot listener |
+| Wellbeing engine | Focus Score, Social Risk, Consumption Quality |
+| PinLock | Ecran de blocare cu cod 6 cifre setat de părinte |
+| FCM | Notificări push pentru alerte critice |
 
-- **UI:** Jetpack Compose (Modern Material 3 with Custom Brand Identity).
-- **Architecture:** MVVM, Coroutines, WorkManager.
-- **Database:** Room (Local Events/Reports), Firebase Firestore (Real-time Sync).
-- **Messaging:** FCM (Data-driven alerts and reports).
-- **ML:** TensorFlow Lite / LiteRT.
+---
 
-## ⚙️ Setup & Installation
+## Stack tehnic
 
-1. Clone the repository.
-2. Place your `google-services.json` in the `app/` directory.
-3. Ensure ML assets (`model.tflite`, `vocab.json`, `labels.json`) are in `app/src/main/assets/`.
-4. Build using Android Studio Jellyfish+.
+- **UI:** Jetpack Compose + Material 3
+- **Arhitectură:** MVVM, Kotlin Coroutines, WorkManager
+- **Baza de date locală:** Room
+- **Sync cloud:** Firebase Firestore + FCM
+- **ML:** TensorFlow Lite / LiteRT (clasificare text on-device)
+- **Rețea:** Android VPN API (LocalVPN, fără server extern)
+- **Auth:** Firebase Anonymous Authentication
 
-## 🔒 Privacy Commitment
-Safeland is built on the principle that a child's screen data belongs to them. Classification is local, alerts are encrypted, and monitoring is transparent.
+---
+
+## Setup pentru development
+
+1. Clonează repo-ul
+2. Pune `google-services.json` în `app/`
+3. Asigură-te că assets-urile ML sunt în `app/src/main/assets/`: `model.tflite`, `vocab.json`, `labels.json`
+4. Build cu Android Studio Jellyfish+
+
+Pentru release APK:
+```bash
+keytool -genkey -v -keystore app/safeland-release.jks -alias safeland -keyalg RSA -keysize 2048 -validity 10000
+KEYSTORE_PASS=xxx KEY_PASS=xxx ./gradlew assembleRelease
+```
+
+---
+
+## Structură Firestore
+
+```
+families/{familyId}/
+  config/parent              ← FCM token parinte
+  children/{childId}/
+    config/settings          ← setari trimise de parinte
+    alerts/{alertId}         ← alerte sistem (time_limit, vpn_stopped, content)
+    reports/{reportId}       ← rapoarte zilnice wellbeing
+    wellbeing/latest         ← profil wellbeing curent
+
+pairing/{code}               ← cod temporar de conectare (15 min)
+feedback/{docId}             ← feedback suport
+```
+
+---
+
+## Privacy
+
+Tot procesarea de continut se face **on-device**. Datele nu parasesc telefonul copilului decat daca o alerta critica este detectata. Nicio captura de ecran, nicio inregistrare audio sau video.
