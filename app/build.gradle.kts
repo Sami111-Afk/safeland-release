@@ -14,7 +14,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.sol.dopaminetrap"
+        applicationId = "com.sol.safeland"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -54,6 +54,10 @@ android {
     }
     aaptOptions {
         noCompress += "tflite"
+    }
+
+    lint {
+        disable += "InvalidFragmentVersionForActivityResult"
     }
 }
 

@@ -104,6 +104,15 @@ class MainActivity : ComponentActivity() {
                     })
                 } else when (deviceMode) {
                     OnboardingManager.DeviceMode.CHILD -> {
+                        // Dialogs secvențiale pentru permisiuni sistem (accesibilitate, notif listener)
+                        PermissionStartupDialogs(
+                            isAccessibilityEnabled        = { isAccessibilityServiceEnabled() },
+                            isNotificationListenerEnabled = { isNotificationListenerEnabled() },
+                            onOpenAccessibilitySettings   = { openAccessibilitySettings() },
+                            onOpenNotificationSettings    = {
+                                startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                            }
+                        )
                         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                             ChildScreen(
                                 modifier = Modifier.padding(innerPadding),
@@ -134,7 +143,8 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     null -> {
-                        OnboardingManager.reset(this@MainActivity)
+                        OnboardingManager.reset(
+                            this@MainActivity)
                         onboardingDone = false
                     }
                 }
@@ -578,5 +588,54 @@ fun BatteryMonitorCard() {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun PermissionStartupDialogs(
+    isAccessibilityEnabled: () -> Boolean,
+    isNotificationListenerEnabled: () -> Boolean,
+    onOpenAccessibilitySettings: () -> Unit,
+    onOpenNotificationSettings: () -> Unit
+) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var a11yOk  by remember { mutableStateOf(isAccessibilityEnabled()) }
+    var notifOk by remember { mutableStateOf(isNotificationListenerEnabled()) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                a11yOk  = isAccessibilityEnabled()
+                notifOk = isNotificationListenerEnabled()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    if (!a11yOk) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Activează accesibilitatea") },
+            text  = { Text("Safeland are nevoie de serviciul de accesibilitate pentru a detecta conținut pe YouTube Shorts și TikTok.") },
+            confirmButton = {
+                Button(onClick = onOpenAccessibilitySettings) { Text("Deschide Setări") }
+            },
+            dismissButton = {
+                TextButton(onClick = { a11yOk = true }) { Text("Mai târziu") }
+            }
+        )
+    } else if (!notifOk) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Activează accesul la notificări") },
+            text  = { Text("Safeland monitorizează mesajele din WhatsApp, Telegram și alte aplicații de mesagerie pentru a detecta conținut periculos.") },
+            confirmButton = {
+                Button(onClick = onOpenNotificationSettings) { Text("Deschide Setări") }
+            },
+            dismissButton = {
+                TextButton(onClick = { notifOk = true }) { Text("Mai târziu") }
+            }
+        )
     }
 }

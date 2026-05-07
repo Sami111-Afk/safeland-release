@@ -1,5 +1,8 @@
 package com.sol.dopaminetrap.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -108,7 +111,8 @@ fun ParentScreen() {
 
         val child = selectedChild ?: children.first()
 
-        var selectedTab by remember { mutableStateOf(0) }
+        var selectedTab  by remember { mutableStateOf(0) }
+        var alertCount   by remember(child.childId) { mutableStateOf(0) }
 
         TabRow(
             selectedTabIndex = selectedTab,
@@ -120,13 +124,23 @@ fun ParentScreen() {
                     Tab(
                         selected = selectedTab == i,
                         onClick  = { selectedTab = i },
-                        text     = { Text(label, style = MaterialTheme.typography.labelSmall) }
+                        text     = {
+                            if (i == 0 && alertCount > 0) {
+                                BadgedBox(badge = {
+                                    Badge { Text("$alertCount", style = MaterialTheme.typography.labelSmall) }
+                                }) {
+                                    Text(label, style = MaterialTheme.typography.labelSmall)
+                                }
+                            } else {
+                                Text(label, style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
                     )
                 }
         }
 
         when (selectedTab) {
-            0 -> NotificationsTab(familyId = familyId, childId = child.childId)
+            0 -> NotificationsTab(familyId = familyId, childId = child.childId, onUnreadCount = { alertCount = it })
             1 -> ControlTab(familyId = familyId, child = child)
             2 -> WellbeingTab(familyId = familyId, childId = child.childId)
             3 -> ReportsTab(familyId = familyId, childId = child.childId)
@@ -218,18 +232,22 @@ private fun ChildSelectorBar(
 // ── Tab 0: Alerte ─────────────────────────────────────────────────────────────
 
 @Composable
-private fun NotificationsTab(familyId: String, childId: String) {
+private fun NotificationsTab(familyId: String, childId: String, onUnreadCount: (Int) -> Unit = {}) {
     var allAlerts by remember(childId) { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
     var isLoading by remember(childId) { mutableStateOf(true) }
     var clearedAt by remember(childId) { mutableStateOf(0L) }
 
-    LaunchedEffect(childId) {
-        isLoading = true
-        allAlerts = FirebaseRepository.fetchRecentAlerts(familyId, childId)
-        isLoading = false
+    DisposableEffect(familyId, childId) {
+        val reg = FirebaseRepository.startAlertsListener(familyId, childId) { list ->
+            allAlerts = list
+            isLoading = false
+        }
+        onDispose { reg.remove() }
     }
 
     val alerts = allAlerts.filter { (it["timestamp"] as? Long ?: 0L) > clearedAt }
+
+    LaunchedEffect(alerts.size) { onUnreadCount(alerts.size) }
 
     Column(
         Modifier
@@ -305,11 +323,17 @@ private fun ExpandableAlertCard(alert: Map<String, Any>) {
 
     val timestamp      = (alert["timestamp"] as? Long) ?: 0L
     val categoryRaw    = alert["category"]       as? String ?: "necunoscut"
-    val category       = categoryLabel(categoryRaw)
+    val typeRaw        = alert["type"]            as? String ?: categoryRaw
     val allCategoriesRaw = alert["allCategories"] as? String ?: ""
     val sourceApp      = alert["sourceApp"]   as? String ?: ""
     val isWellbeing    = alert["sourceType"]  == "wellbeing"
+    val isSystem       = alert["sourceType"]  == "system"
     val concernLevel   = alert["concernLevel"] as? String ?: "NONE"
+    val category = when (typeRaw) {
+        "time_limit"  -> "Limită timp"
+        "vpn_stopped" -> "VPN dezactivat"
+        else          -> categoryLabel(categoryRaw)
+    }
     val message        = (alert["message"] as? String)
         ?.takeIf { it.isNotBlank() }
         ?: allCategoriesRaw.split("|").filter { it.isNotEmpty() }
@@ -317,6 +341,7 @@ private fun ExpandableAlertCard(alert: Map<String, Any>) {
 
     val accentColor = when {
         isWellbeing                                -> BrandIndigo
+        typeRaw == "vpn_stopped"                   -> MaterialTheme.colorScheme.error
         concernLevel in listOf("CRITICAL", "HIGH") -> MaterialTheme.colorScheme.error
         concernLevel == "MEDIUM"                   -> StatusAmber
         else                                       -> MaterialTheme.colorScheme.outline
@@ -335,13 +360,18 @@ private fun ExpandableAlertCard(alert: Map<String, Any>) {
                 verticalAlignment     = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(if (isWellbeing) "💭" else "⚠️", fontSize = 18.sp)
+                Text(when {
+                    isWellbeing              -> "💭"
+                    typeRaw == "vpn_stopped" -> "🛡️"
+                    typeRaw == "time_limit"  -> "⏰"
+                    else                     -> "⚠️"
+                }, fontSize = 18.sp)
                 Column(Modifier.weight(1f)) {
                     Text(
                         category,
                         style      = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold,
-                        color      = if (isWellbeing) BrandIndigo else MaterialTheme.colorScheme.error,
+                        color      = accentColor,
                         maxLines   = if (expanded) Int.MAX_VALUE else 1,
                         overflow   = TextOverflow.Ellipsis
                     )
@@ -444,50 +474,37 @@ private fun ControlTab(familyId: String, child: ChildInfo) {
             return@Column
         }
 
-        // Limite aplicații
-        Card(
-            modifier  = Modifier.fillMaxWidth(),
-            shape     = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(2.dp)
-        ) {
-            Column(Modifier.padding(16.dp)) {
-                Text(
-                    "Limite aplicații",
-                    style      = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color      = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(12.dp))
-                AppLimitRow("TikTok", settings.tiktokEnabled, settings.tiktokLimitMinutes,
-                    { settings = settings.copy(tiktokEnabled = it) },
-                    { settings = settings.copy(tiktokLimitMinutes = it) })
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(0.4f))
-                AppLimitRow("Instagram (feed)", settings.instagramEnabled, settings.instagramLimitMinutes,
-                    { settings = settings.copy(instagramEnabled = it) },
-                    { settings = settings.copy(instagramLimitMinutes = it) })
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(0.4f))
-                AppLimitRow("Instagram Reels", settings.instagramReelsEnabled, settings.instagramReelsLimitMinutes,
-                    { settings = settings.copy(instagramReelsEnabled = it) },
-                    { settings = settings.copy(instagramReelsLimitMinutes = it) })
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(0.4f))
-                AppLimitRow("YouTube Shorts", settings.youtubeShortsEnabled, settings.youtubeShortsLimitMinutes,
-                    { settings = settings.copy(youtubeShortsEnabled = it) },
-                    { settings = settings.copy(youtubeShortsLimitMinutes = it) })
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(0.4f))
-                AppLimitRow("YouTube (video normal)", settings.youtubeEnabled, settings.youtubeLimitMinutes,
-                    { settings = settings.copy(youtubeEnabled = it) },
-                    { settings = settings.copy(youtubeLimitMinutes = it) })
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(0.4f))
-                AppLimitRow("Facebook", settings.facebookEnabled, settings.facebookLimitMinutes,
-                    { settings = settings.copy(facebookEnabled = it) },
-                    { settings = settings.copy(facebookLimitMinutes = it) })
-            }
-        }
+        Text(
+            "Aplicații protejate",
+            style      = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color      = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        AppLimitCard("TikTok", "🎵", Color(0xFF010101),
+            settings.tiktokEnabled, settings.tiktokLimitMinutes,
+            { settings = settings.copy(tiktokEnabled = it) },
+            { settings = settings.copy(tiktokLimitMinutes = it) })
+        AppLimitCard("Instagram", "📸", Color(0xFFE1306C),
+            settings.instagramEnabled, settings.instagramLimitMinutes,
+            { settings = settings.copy(instagramEnabled = it) },
+            { settings = settings.copy(instagramLimitMinutes = it) })
+        AppLimitCard("Instagram Reels", "🎬", Color(0xFFC13584),
+            settings.instagramReelsEnabled, settings.instagramReelsLimitMinutes,
+            { settings = settings.copy(instagramReelsEnabled = it) },
+            { settings = settings.copy(instagramReelsLimitMinutes = it) })
+        AppLimitCard("YouTube Shorts", "▶️", Color(0xFFFF0000),
+            settings.youtubeShortsEnabled, settings.youtubeShortsLimitMinutes,
+            { settings = settings.copy(youtubeShortsEnabled = it) },
+            { settings = settings.copy(youtubeShortsLimitMinutes = it) })
+        AppLimitCard("YouTube", "📺", Color(0xFFCC0000),
+            settings.youtubeEnabled, settings.youtubeLimitMinutes,
+            { settings = settings.copy(youtubeEnabled = it) },
+            { settings = settings.copy(youtubeLimitMinutes = it) })
+        AppLimitCard("Facebook", "👥", Color(0xFF1877F2),
+            settings.facebookEnabled, settings.facebookLimitMinutes,
+            { settings = settings.copy(facebookEnabled = it) },
+            { settings = settings.copy(facebookLimitMinutes = it) })
 
         ThrottleAdvancedPanel(settings = settings, onSettingsChange = { settings = it })
 
@@ -510,22 +527,33 @@ private fun ControlTab(familyId: String, child: ChildInfo) {
             enabled  = !isSaving,
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape    = RoundedCornerShape(14.dp),
-            colors   = ButtonDefaults.buttonColors(containerColor = BrandIndigo)
+            colors   = ButtonDefaults.buttonColors(
+                containerColor = BrandIndigo,
+                disabledContainerColor = BrandIndigo.copy(0.5f)
+            )
         ) {
             if (isSaving)
                 CircularProgressIndicator(modifier = Modifier.size(22.dp), color = Color.White, strokeWidth = 2.dp)
             else
-                Text("Aplică setările", fontWeight = FontWeight.SemiBold)
+                Text("Aplică setările", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
         }
 
         saveMessage?.let { msg ->
-            Text(
-                msg,
-                style    = MaterialTheme.typography.bodySmall,
-                color    = if (msg.startsWith("Eroare")) MaterialTheme.colorScheme.error
-                           else MaterialTheme.colorScheme.primary,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Surface(
+                shape  = RoundedCornerShape(10.dp),
+                color  = if (msg.startsWith("Eroare"))
+                    MaterialTheme.colorScheme.errorContainer
+                else Color(0xFF1B5E20).copy(0.12f)
+            ) {
+                Text(
+                    msg,
+                    style    = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    color    = if (msg.startsWith("Eroare")) MaterialTheme.colorScheme.onErrorContainer
+                               else Color(0xFF1B5E20),
+                    modifier = Modifier.fillMaxWidth().padding(12.dp)
+                )
+            }
         }
 
         Spacer(Modifier.height(8.dp))
@@ -1273,46 +1301,52 @@ private fun FeatureTogglesCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment     = Alignment.CenterVertically
             ) {
-                Column {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment     = Alignment.CenterVertically
+                ) {
+                    Box(
+                        Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
+                            .background(BrandIndigo.copy(0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) { Text("⚙️", fontSize = 18.sp) }
+                    Column {
+                        Text(
+                            "Funcționalități",
+                            style      = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            if (expanded) "Apasă pentru a ascunde" else "Monitorizare, rapoarte, alerte",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant
+                ) {
                     Text(
-                        "Monitorizare & funcționalități",
-                        style      = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        "Activează sau dezactivează fiecare funcție",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        if (expanded) "▲" else "▼",
+                        style    = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
-                Text(if (expanded) "▲" else "▼", style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            if (expanded) {
-                HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    color    = MaterialTheme.colorScheme.outline.copy(0.3f)
-                )
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    ToggleRow("Detectie conținut (AI)", settings.contentDetectionEnabled) {
-                        onSettingsChange(settings.copy(contentDetectionEnabled = it))
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(0.2f))
-                    ToggleRow("Monitor mesagerie (WhatsApp, Telegram…)", settings.messagingMonitorEnabled) {
-                        onSettingsChange(settings.copy(messagingMonitorEnabled = it))
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(0.2f))
-                    ToggleRow("Monitor SMS", settings.smsMonitorEnabled) {
-                        onSettingsChange(settings.copy(smsMonitorEnabled = it))
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(0.2f))
-                    ToggleRow("Rapoarte săptămânale", settings.weeklyReportEnabled) {
-                        onSettingsChange(settings.copy(weeklyReportEnabled = it))
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(0.2f))
-                    ToggleRow("Notificări alerte", settings.alertNotificationsEnabled) {
-                        onSettingsChange(settings.copy(alertNotificationsEnabled = it))
+            AnimatedVisibility(visible = expanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Column {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color    = MaterialTheme.colorScheme.outline.copy(0.2f)
+                    )
+                    Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+                        ToggleRow("🔍", "Detecție conținut AI",     "Analizează videoclipuri și mesaje",           settings.contentDetectionEnabled)  { onSettingsChange(settings.copy(contentDetectionEnabled = it)) }
+                        ToggleRow("💬", "Monitor mesagerie",        "WhatsApp, Telegram, Signal…",                 settings.messagingMonitorEnabled)   { onSettingsChange(settings.copy(messagingMonitorEnabled = it)) }
+                        ToggleRow("📱", "Monitor SMS",              "Mesaje text primite și trimise",              settings.smsMonitorEnabled)         { onSettingsChange(settings.copy(smsMonitorEnabled = it)) }
+                        ToggleRow("📊", "Rapoarte săptămânale",    "Sumar de activitate trimis automat",           settings.weeklyReportEnabled)       { onSettingsChange(settings.copy(weeklyReportEnabled = it)) }
+                        ToggleRow("🔔", "Notificări alerte",       "Primești push notification la alerte critice", settings.alertNotificationsEnabled) { onSettingsChange(settings.copy(alertNotificationsEnabled = it)) }
                     }
                 }
             }
@@ -1321,13 +1355,33 @@ private fun FeatureTogglesCard(
 }
 
 @Composable
-private fun ToggleRow(label: String, checked: Boolean, onToggle: (Boolean) -> Unit) {
+private fun ToggleRow(
+    emoji: String,
+    label: String,
+    subtitle: String,
+    checked: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onToggle(!checked) }
+            .padding(horizontal = 8.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment     = Alignment.CenterVertically
     ) {
-        Text(label, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment     = Alignment.CenterVertically,
+            modifier              = Modifier.weight(1f)
+        ) {
+            Text(emoji, fontSize = 20.sp)
+            Column {
+                Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                Text(subtitle, style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
         Switch(
             checked         = checked,
             onCheckedChange = onToggle,
@@ -1450,60 +1504,139 @@ private fun ThrottleAdvancedPanel(
     }
 }
 
-// ── App toggle + limită de timp ───────────────────────────────────────────────
-
-private val TIME_LIMIT_OPTIONS = listOf(0, 30, 60, 90, 120)
-
-private fun limitLabel(minutes: Int) = when (minutes) {
-    0   -> "Fără"
-    60  -> "1h"
-    90  -> "1h 30m"
-    120 -> "2h"
-    else -> "${minutes}m"
-}
+// ── Card per aplicație (toggle + slider limită) ──────────────────────────────
 
 @Composable
-private fun AppLimitRow(
+private fun AppLimitCard(
     label: String,
+    emoji: String,
+    accentColor: Color,
     enabled: Boolean,
     limitMinutes: Int,
     onToggle: (Boolean) -> Unit,
     onLimitChange: (Int) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment     = Alignment.CenterVertically
-        ) {
-            Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-            Switch(
-                checked         = enabled,
-                onCheckedChange = onToggle,
-                colors          = SwitchDefaults.colors(checkedTrackColor = BrandIndigo)
-            )
-        }
-        if (enabled) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment     = Alignment.CenterVertically
-            ) {
-                Text(
-                    "Limită zilnică:",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                TIME_LIMIT_OPTIONS.forEach { option ->
-                    FilterChip(
-                        selected = limitMinutes == option,
-                        onClick  = { onLimitChange(option) },
-                        label    = { Text(limitLabel(option), style = MaterialTheme.typography.labelSmall) },
-                        colors   = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = BrandIndigo,
-                            selectedLabelColor     = Color.White
-                        )
+    Card(
+        modifier  = Modifier.fillMaxWidth(),
+        shape     = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(if (enabled) 3.dp else 1.dp),
+        colors    = CardDefaults.cardColors(
+            containerColor = if (enabled)
+                MaterialTheme.colorScheme.surface
+            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+        )
+    ) {
+        // Accent bar stânga
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+            Box(
+                Modifier
+                    .width(5.dp)
+                    .fillMaxHeight()
+                    .background(
+                        if (enabled) accentColor else accentColor.copy(alpha = 0.25f)
                     )
+            )
+            Column(Modifier.weight(1f)) {
+                // Rând principal: icon + titlu + toggle
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = if (enabled) 4.dp else 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment     = Alignment.CenterVertically
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment     = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    if (enabled) accentColor.copy(0.12f)
+                                    else MaterialTheme.colorScheme.outline.copy(0.08f)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(emoji, fontSize = 20.sp)
+                        }
+                        Column {
+                            Text(
+                                label,
+                                style      = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color      = if (enabled)
+                                    MaterialTheme.colorScheme.onSurface
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                when {
+                                    !enabled         -> "Dezactivat"
+                                    limitMinutes == 0 -> "Fără limită"
+                                    else              -> "${limitMinutes} min/zi"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = when {
+                                    !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(0.6f)
+                                    limitMinutes == 0 -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    else -> accentColor
+                                }
+                            )
+                        }
+                    }
+                    Switch(
+                        checked         = enabled,
+                        onCheckedChange = onToggle,
+                        colors          = SwitchDefaults.colors(checkedTrackColor = accentColor)
+                    )
+                }
+
+                // Slider limită zilnică (animat)
+                AnimatedVisibility(
+                    visible = enabled,
+                    enter   = expandVertically(),
+                    exit    = shrinkVertically()
+                ) {
+                    Column(
+                        Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp)
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "Limită zilnică",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                if (limitMinutes == 0) "Nelimitată" else "${limitMinutes} min",
+                                style      = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color      = accentColor
+                            )
+                        }
+                        Slider(
+                            value         = limitMinutes.toFloat(),
+                            onValueChange = {
+                                onLimitChange(((it / 5).roundToInt() * 5).coerceIn(0, 120))
+                            },
+                            valueRange = 0f..120f,
+                            steps      = 23,
+                            colors     = SliderDefaults.colors(
+                                thumbColor       = accentColor,
+                                activeTrackColor = accentColor,
+                                inactiveTrackColor = accentColor.copy(0.2f)
+                            )
+                        )
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Nelimitată", style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f))
+                            Text("2h", style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f))
+                        }
+                    }
                 }
             }
         }

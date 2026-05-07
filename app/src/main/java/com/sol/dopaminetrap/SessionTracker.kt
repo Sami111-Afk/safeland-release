@@ -17,9 +17,13 @@ object SessionTracker {
     private const val KEY_YT            = "youtube_ms"
     private const val KEY_FACEBOOK      = "facebook_ms"
 
-    private val accumulatedMs = ConcurrentHashMap<ProtectedApp, Long>()
-    private val sessionStart  = ConcurrentHashMap<ProtectedApp, Long>()
-    private val limitMs       = ConcurrentHashMap<ProtectedApp, Long>()
+    private val accumulatedMs    = ConcurrentHashMap<ProtectedApp, Long>()
+    private val sessionStart     = ConcurrentHashMap<ProtectedApp, Long>()
+    private val limitMs          = ConcurrentHashMap<ProtectedApp, Long>()
+    private val alertedThresholds = ConcurrentHashMap<ProtectedApp, MutableSet<Int>>()
+
+    /** Apelat când copilul atinge 80% (avertizare) sau 100% (limită) din timpul zilnic al unei aplicații. */
+    var onThresholdCrossed: ((app: ProtectedApp, threshold: Int) -> Unit)? = null
 
     // ── Init / persist ────────────────────────────────────────────────────────
 
@@ -37,6 +41,7 @@ object SessionTracker {
                 .putLong(KEY_YT,            0)
                 .putLong(KEY_FACEBOOK,      0)
                 .apply()
+            alertedThresholds.clear()
         }
 
         accumulatedMs[ProtectedApp.TIKTOK]           = prefs.getLong(KEY_TIKTOK,       0)
@@ -86,6 +91,16 @@ object SessionTracker {
         val start = sessionStart.remove(app) ?: return
         accumulatedMs[app] = (accumulatedMs[app] ?: 0L) + (System.currentTimeMillis() - start)
         context?.let { persist(it) }
+        checkThresholds(app)
+    }
+
+    private fun checkThresholds(app: ProtectedApp) {
+        val lim = limitMs[app] ?: 0L
+        if (lim <= 0) return
+        val progress = getTotalMs(app).toFloat() / lim
+        val alerted  = alertedThresholds.getOrPut(app) { mutableSetOf() }
+        if (progress >= 0.80f && 80  !in alerted) { alerted += 80;  onThresholdCrossed?.invoke(app, 80) }
+        if (progress >= 1.00f && 100 !in alerted) { alerted += 100; onThresholdCrossed?.invoke(app, 100) }
     }
 
     // ── Interogare ────────────────────────────────────────────────────────────

@@ -208,6 +208,43 @@ object FirebaseRepository {
         childRef(familyId, childId).set(mapOf("name" to childName)).await()
     }
 
+    // ── Alerte sistem ────────────────────────────────────────────────────────
+
+    suspend fun pushAlert(
+        familyId: String,
+        childId: String,
+        type: String,
+        message: String,
+        sourceApp: String = "",
+        concernLevel: String = "MEDIUM"
+    ) {
+        ensureAuth()
+        childRef(familyId, childId).collection("alerts").add(
+            mapOf(
+                "timestamp"    to System.currentTimeMillis(),
+                "type"         to type,
+                "category"     to type,
+                "message"      to message,
+                "sourceApp"    to sourceApp,
+                "concernLevel" to concernLevel,
+                "sourceType"   to "system"
+            )
+        ).await()
+    }
+
+    fun startAlertsListener(
+        familyId: String,
+        childId: String,
+        onUpdate: (List<Map<String, Any>>) -> Unit
+    ): ListenerRegistration =
+        childRef(familyId, childId)
+            .collection("alerts")
+            .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(30)
+            .addSnapshotListener { snap, _ ->
+                onUpdate(snap?.documents?.mapNotNull { it.data } ?: emptyList())
+            }
+
     // ── Apply settings ────────────────────────────────────────────────────────
 
     private fun applySettingsToChild(context: Context, settings: FamilySettings) {

@@ -17,6 +17,10 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * DopamineVpnService — Mini-TCP transparent proxy cu Burst-and-Pause throttling.
@@ -80,17 +84,29 @@ class DopamineVpnService : VpnService(), Runnable {
 
     // ─── Lifecycle ────────────────────────────────────────────────────────────
 
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
     override fun onCreate() {
         super.onCreate()
         instance = this
         executor = if (DeviceTier.isStandard(this))
-            Executors.newFixedThreadPool(12)   // STANDARD: mărginit → mai puțin context-switching
+            Executors.newFixedThreadPool(12)
         else
-            Executors.newCachedThreadPool()    // FLAGSHIP: comportament original
+            Executors.newCachedThreadPool()
         val familyId = OnboardingManager.getFamilyId(this)
-        val childId = OnboardingManager.getChildId(this)
+        val childId  = OnboardingManager.getChildId(this)
         if (familyId != null && childId != null) {
             FirebaseRepository.startChildListener(this, familyId, childId)
+            SessionTracker.onThresholdCrossed = { app, threshold ->
+                serviceScope.launch {
+                    val msg = if (threshold == 100)
+                        "${app.displayName} — limita zilnică de timp a fost atinsă!"
+                    else
+                        "${app.displayName} — 80% din limita zilnică utilizată."
+                    val level = if (threshold == 100) "HIGH" else "MEDIUM"
+                    runCatching { FirebaseRepository.pushAlert(familyId, childId, "time_limit", msg, app.displayName, level) }
+                }
+            }
         }
     }
 
@@ -154,6 +170,18 @@ class DopamineVpnService : VpnService(), Runnable {
     override fun onDestroy() {
         instance = null
         FirebaseRepository.stopListener()
+        SessionTracker.onThresholdCrossed = null
+        val familyId = OnboardingManager.getFamilyId(this)
+        val childId  = OnboardingManager.getChildId(this)
+        if (familyId != null && childId != null) {
+            serviceScope.launch {
+                runCatching {
+                    FirebaseRepository.pushAlert(familyId, childId, "vpn_stopped",
+                        "Protecția VPN a fost dezactivată de pe telefonul copilului.",
+                        "", "HIGH")
+                }
+            }
+        }
         doCleanup()
         executor.shutdownNow()
         super.onDestroy()
