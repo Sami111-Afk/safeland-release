@@ -4,8 +4,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.BatteryManager
 import android.provider.Settings
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -44,9 +44,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.sol.dopaminetrap.*
 import com.sol.dopaminetrap.BuildConfig
 import com.sol.dopaminetrap.FirebaseRepository
-import com.sol.dopaminetrap.ui.theme.BrandIndigo
-import com.sol.dopaminetrap.ui.theme.StatusGreen
-import com.sol.dopaminetrap.ui.theme.StatusRed
+import com.sol.dopaminetrap.ui.theme.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -65,7 +63,6 @@ fun ChildScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // ── Observe settings for app lock / disable ───────────────────────────────
     val settings by FirebaseRepository.settingsFlow.collectAsStateWithLifecycle()
     var pinUnlocked by remember { mutableStateOf(false) }
 
@@ -82,10 +79,7 @@ fun ChildScreen(
         return
     }
 
-    val vpnActive = DopamineVpnService.instance != null
-
-    // Refresh VPN state on resume
-    var vpnActiveState by remember { mutableStateOf(vpnActive) }
+    var vpnActiveState by remember { mutableStateOf(DopamineVpnService.instance != null) }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -96,7 +90,6 @@ fun ChildScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // PIN dialog state (pentru acces setări ascunse)
     var showPinDialog     by remember { mutableStateOf(false) }
     var showHiddenSection by remember { mutableStateOf(false) }
 
@@ -108,147 +101,154 @@ fun ChildScreen(
         )
     }
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .background(Brush.verticalGradient(listOf(SfCream, SfBg2)))
     ) {
-        ShieldHeader(isActive = vpnActiveState)
-
         Column(
-            modifier = Modifier.padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
         ) {
-            Spacer(Modifier.height(8.dp))
+            ShieldHeader(isActive = vpnActiveState)
 
-            // Mesaj simplu pentru copil
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape    = RoundedCornerShape(16.dp),
-                colors   = CardDefaults.cardColors(
-                    containerColor = if (vpnActiveState)
-                        MaterialTheme.colorScheme.primaryContainer
-                    else
-                        MaterialTheme.colorScheme.surfaceVariant
-                )
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Column(
-                    modifier = Modifier.padding(20.dp).fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        if (vpnActiveState) "Ești protejat 🛡️" else "Protecția nu este activă",
-                        style      = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        textAlign  = TextAlign.Center
-                    )
-                    Text(
-                        if (vpnActiveState)
-                            "Safeland funcționează în fundal. Nu trebuie să faci nimic."
-                        else
-                            "Apasă butonul de mai jos pentru a porni protecția.",
-                        style     = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center,
-                        color     = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+                Spacer(Modifier.height(4.dp))
 
-            if (!vpnActiveState) {
-                Button(
-                    onClick  = { onStartVpn(); vpnActiveState = true },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape    = RoundedCornerShape(14.dp),
-                    colors   = ButtonDefaults.buttonColors(containerColor = BrandIndigo)
-                ) {
-                    Text("Pornește protecția", style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold)
-                }
-            }
-
-            // Indicator discret dacă lipsesc permisiuni (copilul e îndrumat spre Setări)
-            val permsMissing = !isAccessibilityEnabled() || !isNotificationListenerEnabled()
-            if (permsMissing) {
+                // Status card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape    = RoundedCornerShape(12.dp),
+                    shape    = RoundedCornerShape(16.dp),
                     colors   = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
-                    )
+                        containerColor = if (vpnActiveState) SfWarnBg else Color.White
+                    ),
+                    border   = BorderStroke(1.dp, SfBorder)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    Column(
+                        modifier = Modifier
+                            .padding(20.dp)
+                            .fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text("⚠️", fontSize = 18.sp)
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                "Protecția nu este completă",
-                                style      = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color      = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                            Text(
-                                "Cere ajutorul părintelui tău → Setări",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
-                            )
+                        Text(
+                            if (vpnActiveState) "Ești protejat 🛡️" else "Protecția nu este activă",
+                            style      = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color      = SfDark,
+                            textAlign  = TextAlign.Center
+                        )
+                        Text(
+                            if (vpnActiveState)
+                                "Safeland funcționează în fundal. Nu trebuie să faci nimic."
+                            else
+                                "Apasă butonul de mai jos pentru a porni protecția.",
+                            style     = MaterialTheme.typography.bodySmall,
+                            color     = SfGray,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                if (!vpnActiveState) {
+                    Button(
+                        onClick  = { onStartVpn(); vpnActiveState = true },
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        shape    = RoundedCornerShape(28.dp),
+                        colors   = ButtonDefaults.buttonColors(
+                            containerColor = SfDark,
+                            contentColor   = SfCream
+                        )
+                    ) {
+                        Text(
+                            "Pornește protecția",
+                            style      = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // Warning: incomplete permissions
+                val permsMissing = !isAccessibilityEnabled() || !isNotificationListenerEnabled()
+                if (permsMissing) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape    = RoundedCornerShape(12.dp),
+                        colors   = CardDefaults.cardColors(containerColor = SfWarnBg),
+                        border   = BorderStroke(1.dp, SfBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text("⚠️", fontSize = 18.sp)
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    "Protecția nu este completă",
+                                    style      = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color      = SfDark
+                                )
+                                Text(
+                                    "Cere ajutorul părintelui tău → Setări",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = SfGray
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            // Secțiunea ascunsă — necesită PIN dacă lockEnabled
-            if (showHiddenSection) {
-                // Permisiuni
-                PermissionsCard(
-                    a11yEnabled  = isAccessibilityEnabled(),
-                    notifEnabled = isNotificationListenerEnabled(),
-                    smsEnabled   = hasSmsPermission(),
-                    onOpenA11y   = onOpenAccessibilitySettings,
-                    onOpenNotif  = onOpenNotificationSettings,
-                    onRequestSms = { onRequestSmsPermission() }
-                )
-
-                // Oprire VPN
-                val ctx = LocalContext.current
-                Button(
-                    onClick = {
-                        ctx.stopService(android.content.Intent(ctx, DopamineVpnService::class.java))
-                        vpnActiveState = false
-                        showHiddenSection = false
-                    },
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                    shape    = RoundedCornerShape(14.dp),
-                    colors   = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
+                // Hidden section (needs PIN)
+                if (showHiddenSection) {
+                    PermissionsCard(
+                        a11yEnabled  = isAccessibilityEnabled(),
+                        notifEnabled = isNotificationListenerEnabled(),
+                        smsEnabled   = hasSmsPermission(),
+                        onOpenA11y   = onOpenAccessibilitySettings,
+                        onOpenNotif  = onOpenNotificationSettings,
+                        onRequestSms = { onRequestSmsPermission() }
                     )
-                ) {
-                    Text("Oprește protecția", style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold)
+
+                    val ctx = LocalContext.current
+                    Button(
+                        onClick = {
+                            ctx.stopService(android.content.Intent(ctx, DopamineVpnService::class.java))
+                            vpnActiveState = false
+                            showHiddenSection = false
+                        },
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape    = RoundedCornerShape(28.dp),
+                        colors   = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor   = Color.White
+                        )
+                    ) {
+                        Text("Oprește protecția", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+
+                    PairingCodeCard()
+                    if (BuildConfig.DEBUG) {
+                        DevToolsSection()
+                    }
+                    TextButton(onClick = { showHiddenSection = false }) {
+                        Text("Închide setările", style = MaterialTheme.typography.labelSmall, color = SfLGray)
+                    }
+                } else {
+                    Spacer(Modifier.height(24.dp))
+                    TextButton(onClick = { showPinDialog = true }) {
+                        Text("Setări", style = MaterialTheme.typography.labelSmall, color = SfLGray)
+                    }
                 }
 
-                PairingCodeCard()
-                if (BuildConfig.DEBUG) {
-                    DevToolsSection()
-                }
-                TextButton(onClick = { showHiddenSection = false }) {
-                    Text("Închide setările", style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            } else {
-                // Link discret în josul ecranului
-                Spacer(Modifier.height(32.dp))
-                TextButton(onClick = { showPinDialog = true }) {
-                    Text("Setări", style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                }
+                Spacer(Modifier.height(16.dp))
             }
-
-            Spacer(Modifier.height(16.dp))
         }
     }
 }
@@ -264,7 +264,7 @@ private fun PinAccessDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Cod de acces") },
+        title = { Text("Cod de acces", fontWeight = FontWeight.Bold, color = SfDark) },
         text  = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -277,7 +277,12 @@ private fun PinAccessDialog(
                     label           = { Text("PIN 4 cifre") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     singleLine      = true,
-                    isError         = error
+                    isError         = error,
+                    colors          = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor   = SfDark,
+                        unfocusedBorderColor = SfBorder,
+                        focusedLabelColor    = SfDark
+                    )
                 )
                 if (error) Text("Cod incorect.", color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.labelSmall)
@@ -290,10 +295,10 @@ private fun PinAccessDialog(
                     if (correctPin == null || pin == correctPin) onSuccess()
                     else { error = true; pin = "" }
                 }
-            ) { Text("OK") }
+            ) { Text("OK", color = SfDark, fontWeight = FontWeight.Bold) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Anulează") }
+            TextButton(onClick = onDismiss) { Text("Anulează", color = SfGray) }
         }
     )
 }
@@ -302,18 +307,12 @@ private fun PinAccessDialog(
 
 @Composable
 private fun ShieldHeader(isActive: Boolean) {
-    val bgColor by animateColorAsState(
-        targetValue = if (isActive) Color(0xFF3B4FCC) else Color(0xFF5A5A72),
-        animationSpec = tween(600),
-        label = "header_color"
-    )
-
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
         targetValue  = if (isActive) 1.12f else 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = EaseInOutSine),
+            animation  = tween(1200, easing = EaseInOutSine),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulse_scale"
@@ -322,39 +321,35 @@ private fun ShieldHeader(isActive: Boolean) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                Brush.verticalGradient(
-                    listOf(bgColor, bgColor.copy(alpha = 0.85f))
-                )
-            )
-            .padding(horizontal = 24.dp, vertical = 32.dp)
+            .background(SfMid)
+            .padding(horizontal = 24.dp, vertical = 28.dp)
     ) {
         Column {
             Text(
                 "Safeland",
-                style = MaterialTheme.typography.titleSmall,
-                color = Color.White.copy(alpha = 0.7f),
+                style        = MaterialTheme.typography.titleSmall,
+                color        = SfCream.copy(alpha = 0.65f),
                 letterSpacing = 1.5.sp
             )
             Spacer(Modifier.height(4.dp))
             Text(
                 if (isActive) "Protecție activă" else "Configurare necesară",
-                style = MaterialTheme.typography.headlineMedium,
+                style      = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color      = SfCream
             )
         }
 
         Box(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .size(64.dp)
+                .size(60.dp)
                 .scale(pulseScale)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.15f)),
+                .background(SfCream.copy(alpha = 0.12f)),
             contentAlignment = Alignment.Center
         ) {
-            Text(if (isActive) "🛡️" else "⚠️", fontSize = 32.sp)
+            Text(if (isActive) "🛡️" else "⚠️", fontSize = 28.sp)
         }
     }
 }
@@ -371,37 +366,26 @@ private fun PermissionsCard(
     onRequestSms: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(2.dp)
+        modifier  = Modifier.fillMaxWidth(),
+        shape     = RoundedCornerShape(16.dp),
+        colors    = CardDefaults.cardColors(containerColor = Color.White),
+        border    = BorderStroke(1.dp, SfBorder),
+        elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
             Text(
                 "Stare sistem",
-                style = MaterialTheme.typography.titleSmall,
+                style      = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color      = SfGray
             )
             Spacer(Modifier.height(12.dp))
 
-            StatusRow(
-                label    = "Detectare conținut",
-                enabled  = a11yEnabled,
-                onAction = onOpenA11y
-            )
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(0.4f))
-            StatusRow(
-                label    = "Monitorizare mesaje",
-                enabled  = notifEnabled,
-                onAction = onOpenNotif
-            )
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(0.4f))
-            StatusRow(
-                label    = "Mesaje SMS",
-                enabled  = smsEnabled,
-                onAction = onRequestSms
-            )
+            StatusRow("Detectare conținut", a11yEnabled,  onOpenA11y)
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = SfBorder.copy(0.5f))
+            StatusRow("Monitorizare mesaje", notifEnabled, onOpenNotif)
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = SfBorder.copy(0.5f))
+            StatusRow("Mesaje SMS",          smsEnabled,   onRequestSms)
         }
     }
 }
@@ -423,84 +407,19 @@ private fun StatusRow(label: String, enabled: Boolean, onAction: () -> Unit) {
                     .clip(CircleShape)
                     .background(if (enabled) StatusGreen else StatusRed)
             )
-            Text(label, style = MaterialTheme.typography.bodyMedium)
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = SfDark)
         }
         if (!enabled) {
             TextButton(
                 onClick = onAction,
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
             ) {
-                Text(
-                    "Activează",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Text("Activează", style = MaterialTheme.typography.labelMedium, color = SfDark,
+                    fontWeight = FontWeight.SemiBold)
             }
         } else {
-            Text(
-                "Activ",
-                style = MaterialTheme.typography.labelSmall,
-                color = StatusGreen,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-    }
-}
-
-// ── Protected apps card ───────────────────────────────────────────────────────
-
-@Composable
-private fun ProtectedAppsCard(
-    appStates: Map<ProtectedApp, Boolean>,
-    onToggle: (ProtectedApp, Boolean) -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(2.dp)
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Text(
-                "Aplicații protejate",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(12.dp))
-
-            ProtectedApp.entries.forEachIndexed { index, app ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(app.displayName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                        Text(
-                            "Throttle automat",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = appStates[app] ?: true,
-                        onCheckedChange = { onToggle(app, it) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = BrandIndigo
-                        )
-                    )
-                }
-                if (index < ProtectedApp.entries.size - 1) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        color = MaterialTheme.colorScheme.outline.copy(0.4f)
-                    )
-                }
-            }
+            Text("Activ", style = MaterialTheme.typography.labelSmall, color = StatusGreen,
+                fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -522,25 +441,23 @@ private fun PairingCodeCard() {
     Card(
         modifier  = Modifier.fillMaxWidth(),
         shape     = RoundedCornerShape(16.dp),
-        colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(2.dp)
+        colors    = CardDefaults.cardColors(containerColor = Color.White),
+        border    = BorderStroke(1.dp, SfBorder),
+        elevation = CardDefaults.cardElevation(0.dp)
     ) {
-        Column(
-            Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 "Conectare cu părintele",
                 style      = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
-                color      = MaterialTheme.colorScheme.onSurfaceVariant
+                color      = SfGray
             )
 
             if (code == null) {
                 Text(
                     "Generează un cod de 6 cifre pe care părintele îl introduce în aplicația lui.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = SfGray
                 )
                 error?.let {
                     Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
@@ -553,36 +470,34 @@ private fun PairingCodeCard() {
                             runCatching {
                                 val newCode = com.sol.dopaminetrap.FirebaseRepository
                                     .generatePairingCode(familyId, childId, childName)
-                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                    code = newCode
-                                }
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { code = newCode }
                             }.onFailure {
                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                     error = "Eroare. Verifică internetul."
                                 }
                             }
-                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                isLoading = false
-                            }
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { isLoading = false }
                         }
                     },
                     enabled  = !isLoading && familyId.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth(),
-                    shape    = RoundedCornerShape(10.dp)
+                    shape    = RoundedCornerShape(28.dp),
+                    border   = BorderStroke(1.dp, SfBorder),
+                    colors   = ButtonDefaults.outlinedButtonColors(contentColor = SfDark)
                 ) {
-                    if (isLoading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    else Text("Generează cod de conectare", style = MaterialTheme.typography.bodySmall)
+                    if (isLoading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = SfDark)
+                    else Text("Generează cod de conectare", style = MaterialTheme.typography.bodySmall, color = SfDark)
                 }
             } else {
                 Text(
                     "Dă acest cod părintelui (expiră în 15 min):",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = SfGray
                 )
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape    = RoundedCornerShape(12.dp),
-                    color    = BrandIndigo.copy(alpha = 0.10f)
+                    color    = SfBg2
                 ) {
                     Text(
                         code!!,
@@ -592,7 +507,7 @@ private fun PairingCodeCard() {
                             letterSpacing = 8.sp
                         ),
                         fontWeight = FontWeight.Bold,
-                        color      = BrandIndigo,
+                        color      = SfDark,
                         textAlign  = androidx.compose.ui.text.style.TextAlign.Center
                     )
                 }
@@ -600,7 +515,7 @@ private fun PairingCodeCard() {
                     onClick  = { code = null },
                     modifier = Modifier.align(Alignment.End)
                 ) {
-                    Text("Generează alt cod", style = MaterialTheme.typography.labelSmall)
+                    Text("Generează alt cod", style = MaterialTheme.typography.labelSmall, color = SfLGray)
                 }
             }
         }
@@ -615,63 +530,44 @@ private fun DevToolsSection() {
     val scope = rememberCoroutineScope()
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        modifier  = Modifier.fillMaxWidth(),
+        shape     = RoundedCornerShape(16.dp),
+        colors    = CardDefaults.cardColors(containerColor = Color.White),
+        border    = BorderStroke(1.dp, SfBorder),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                "Unelte test (dev)",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Unelte test (dev)", style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold, color = SfGray)
 
-            // Test raport săptămânal
             OutlinedButton(
-                onClick = {
-                    WorkManager.getInstance(context)
-                        .enqueue(OneTimeWorkRequestBuilder<WeeklyReportWorker>().build())
-                },
+                onClick  = { WorkManager.getInstance(context).enqueue(OneTimeWorkRequestBuilder<WeeklyReportWorker>().build()) },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Text("Test raport săptămânal", style = MaterialTheme.typography.bodySmall)
-            }
+                shape    = RoundedCornerShape(10.dp),
+                border   = BorderStroke(1.dp, SfBorder),
+                colors   = ButtonDefaults.outlinedButtonColors(contentColor = SfDark)
+            ) { Text("Test raport săptămânal", style = MaterialTheme.typography.bodySmall) }
 
-            // Test well-being zilnic
             OutlinedButton(
-                onClick = {
-                    WorkManager.getInstance(context)
-                        .enqueue(OneTimeWorkRequestBuilder<DailyWellbeingWorker>().build())
-                },
+                onClick  = { WorkManager.getInstance(context).enqueue(OneTimeWorkRequestBuilder<DailyWellbeingWorker>().build()) },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Text("Test well-being zilnic", style = MaterialTheme.typography.bodySmall)
-            }
+                shape    = RoundedCornerShape(10.dp),
+                border   = BorderStroke(1.dp, SfBorder),
+                colors   = ButtonDefaults.outlinedButtonColors(contentColor = SfDark)
+            ) { Text("Test well-being zilnic", style = MaterialTheme.typography.bodySmall) }
 
-            // Training mode TikTok
             var trainingMode by remember { mutableStateOf(com.sol.dopaminetrap.DopamineAccessibilityService.trainingModeActive.get()) }
             OutlinedButton(
-                onClick = {
-                    trainingMode = !trainingMode
-                    com.sol.dopaminetrap.DopamineAccessibilityService.trainingModeActive.set(trainingMode)
-                },
+                onClick  = { trainingMode = !trainingMode; com.sol.dopaminetrap.DopamineAccessibilityService.trainingModeActive.set(trainingMode) },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp)
+                shape    = RoundedCornerShape(10.dp),
+                border   = BorderStroke(1.dp, SfBorder),
+                colors   = ButtonDefaults.outlinedButtonColors(contentColor = SfDark)
             ) {
-                Text(
-                    if (trainingMode) "Training TikTok: ACTIV — oprește" else "Pornește training mode TikTok",
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Text(if (trainingMode) "Training TikTok: ACTIV — oprește" else "Pornește training mode TikTok",
+                    style = MaterialTheme.typography.bodySmall)
             }
 
-            // Export date training
             val usingAi = remember { ModelManager.isUsingAiModel(context) }
             OutlinedButton(
                 onClick = {
@@ -692,37 +588,30 @@ private fun DevToolsSection() {
                             putExtra(Intent.EXTRA_STREAM, uri)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
-                        withContext(Dispatchers.Main) {
-                            context.startActivity(Intent.createChooser(intent, "Export training data"))
-                        }
+                        withContext(Dispatchers.Main) { context.startActivity(Intent.createChooser(intent, "Export training data")) }
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp)
+                shape    = RoundedCornerShape(10.dp),
+                border   = BorderStroke(1.dp, SfBorder),
+                colors   = ButtonDefaults.outlinedButtonColors(contentColor = SfDark)
             ) {
-                Text(
-                    if (usingAi) "Model AI activ — Export CSV" else "Export date training CSV",
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Text(if (usingAi) "Model AI activ — Export CSV" else "Export date training CSV",
+                    style = MaterialTheme.typography.bodySmall)
             }
 
-            // Force STANDARD device tier
             var forceStandard by remember { mutableStateOf(com.sol.dopaminetrap.DeviceTier.forceStandard.get()) }
             OutlinedButton(
-                onClick = {
-                    forceStandard = !forceStandard
-                    com.sol.dopaminetrap.DeviceTier.forceStandard.set(forceStandard)
-                },
+                onClick  = { forceStandard = !forceStandard; com.sol.dopaminetrap.DeviceTier.forceStandard.set(forceStandard) },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp)
+                shape    = RoundedCornerShape(10.dp),
+                border   = BorderStroke(1.dp, SfBorder),
+                colors   = ButtonDefaults.outlinedButtonColors(contentColor = SfDark)
             ) {
-                Text(
-                    if (forceStandard) "DeviceTier: STANDARD forțat — resetează" else "Forțează mod STANDARD",
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Text(if (forceStandard) "DeviceTier: STANDARD forțat — resetează" else "Forțează mod STANDARD",
+                    style = MaterialTheme.typography.bodySmall)
             }
 
-            // Battery monitor
             BatteryMonitorCard()
         }
     }
@@ -754,28 +643,24 @@ private fun BatteryMonitorCard() {
         }
     }
 
-    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(0.3f))
+    HorizontalDivider(color = SfBorder.copy(0.5f))
+    Text("Monitor baterie", style = MaterialTheme.typography.labelSmall, color = SfGray)
     Text(
-        "Monitor baterie",
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-    Text(
-        if (unsupported) "BATTERY_PROPERTY_CURRENT_NOW nesupport (Xiaomi?)"
+        if (unsupported) "BATTERY_PROPERTY_CURRENT_NOW nesupport"
         else "Curent: ${currentMa} mA  |  Medie 30s: ${avgMa} mA",
         style = MaterialTheme.typography.bodySmall,
-        color = if (unsupported) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+        color = if (unsupported) MaterialTheme.colorScheme.error else SfGray
     )
 }
 
-// ── Overlay app dezactivată ───────────────────────────────────────────────────
+// ── App dezactivată ───────────────────────────────────────────────────────────
 
 @Composable
 fun AppDisabledScreen() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.errorContainer),
+            .background(Brush.verticalGradient(listOf(SfCream, SfBg2))),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -789,35 +674,30 @@ fun AppDisabledScreen() {
                 style      = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 textAlign  = TextAlign.Center,
-                color      = MaterialTheme.colorScheme.onErrorContainer
+                color      = SfDark
             )
             Text(
                 "Părintele tău a dezactivat temporar accesul. Vorbește cu el dacă crezi că e o greșeală.",
                 style     = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
-                color     = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                color     = SfGray
             )
         }
     }
 }
 
-// ── Ecran PIN lock ────────────────────────────────────────────────────────────
+// ── PIN lock screen ───────────────────────────────────────────────────────────
 
 @Composable
 fun PinLockScreen(correctPin: String, onUnlocked: () -> Unit) {
-    var pin        by remember { mutableStateOf("") }
-    var error      by remember { mutableStateOf(false) }
-    var showInput  by remember { mutableStateOf(false) }
+    var pin       by remember { mutableStateOf("") }
+    var error     by remember { mutableStateOf(false) }
+    var showInput by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                androidx.compose.ui.graphics.Brush.verticalGradient(
-                    listOf(androidx.compose.ui.graphics.Color(0xFF3B4FCC),
-                           androidx.compose.ui.graphics.Color(0xFF1A237E))
-                )
-            ),
+            .background(SfMid),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -830,19 +710,19 @@ fun PinLockScreen(correctPin: String, onUnlocked: () -> Unit) {
                 "Safeland",
                 style      = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color      = androidx.compose.ui.graphics.Color.White
+                color      = SfCream
             )
             Text(
                 "Aplicația este blocată.",
                 style     = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
-                color     = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.9f)
+                color     = SfCream.copy(alpha = 0.9f)
             )
             Text(
                 "Cere codul de deblocare de la părintele tău.",
                 style     = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
-                color     = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.7f)
+                color     = SfCream.copy(alpha = 0.65f)
             )
 
             Spacer(Modifier.height(8.dp))
@@ -850,53 +730,44 @@ fun PinLockScreen(correctPin: String, onUnlocked: () -> Unit) {
             if (!showInput) {
                 OutlinedButton(
                     onClick = { showInput = true },
-                    colors  = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-                        contentColor = androidx.compose.ui.graphics.Color.White
-                    ),
-                    border  = androidx.compose.foundation.BorderStroke(
-                        1.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.5f)
-                    )
+                    shape   = RoundedCornerShape(28.dp),
+                    border  = BorderStroke(1.dp, SfCream.copy(alpha = 0.5f)),
+                    colors  = ButtonDefaults.outlinedButtonColors(contentColor = SfCream)
                 ) {
-                    Text("Am codul")
+                    Text("Am codul", fontWeight = FontWeight.Medium)
                 }
             } else {
                 OutlinedTextField(
                     value         = pin,
                     onValueChange = {
-                        if (it.length <= 6 && it.all { c -> c.isDigit() }) {
-                            pin   = it
-                            error = false
-                        }
+                        if (it.length <= 6 && it.all { c -> c.isDigit() }) { pin = it; error = false }
                     },
-                    label           = { Text("Cod de deblocare", color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.7f)) },
+                    label           = { Text("Cod de deblocare", color = SfCream.copy(alpha = 0.7f)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     singleLine      = true,
                     isError         = error,
                     colors          = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor      = androidx.compose.ui.graphics.Color.White,
-                        unfocusedTextColor    = androidx.compose.ui.graphics.Color.White,
-                        focusedBorderColor    = androidx.compose.ui.graphics.Color.White,
-                        unfocusedBorderColor  = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.5f),
-                        errorBorderColor      = androidx.compose.ui.graphics.Color(0xFFFF6B6B)
+                        focusedTextColor      = SfCream,
+                        unfocusedTextColor    = SfCream,
+                        focusedBorderColor    = SfCream,
+                        unfocusedBorderColor  = SfCream.copy(alpha = 0.5f),
+                        errorBorderColor      = StatusRed
                     ),
-                    supportingText  = if (error) {{ Text("Cod incorect.", color = androidx.compose.ui.graphics.Color(0xFFFF6B6B)) }} else null,
-                    modifier        = Modifier.fillMaxWidth()
+                    supportingText = if (error) {{ Text("Cod incorect.", color = StatusRed) }} else null,
+                    modifier       = Modifier.fillMaxWidth()
                 )
 
                 Button(
-                    onClick = {
-                        if (pin == correctPin) onUnlocked()
-                        else { error = true; pin = "" }
-                    },
+                    onClick  = { if (pin == correctPin) onUnlocked() else { error = true; pin = "" } },
                     enabled  = pin.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth().height(52.dp),
-                    colors   = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = androidx.compose.ui.graphics.Color.White,
-                        contentColor   = androidx.compose.ui.graphics.Color(0xFF3B4FCC)
+                    shape    = RoundedCornerShape(28.dp),
+                    colors   = ButtonDefaults.buttonColors(
+                        containerColor = SfCream,
+                        contentColor   = SfDark
                     )
                 ) {
-                    Text("Deblochează", style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold)
+                    Text("Deblochează", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
             }
         }

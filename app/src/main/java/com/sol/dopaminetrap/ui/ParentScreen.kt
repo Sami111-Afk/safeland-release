@@ -32,9 +32,7 @@ import com.sol.dopaminetrap.analysis.categoryLabel
 import com.sol.dopaminetrap.OnboardingManager
 import com.sol.dopaminetrap.data.FamilySettings
 import com.sol.dopaminetrap.data.WellbeingProfile
-import com.sol.dopaminetrap.ui.theme.BrandIndigo
-import com.sol.dopaminetrap.ui.theme.StatusAmber
-import com.sol.dopaminetrap.ui.theme.StatusGreen
+import com.sol.dopaminetrap.ui.theme.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -71,12 +69,16 @@ fun ParentScreen() {
         isLoadingChildren = false
     }
 
-    Column(Modifier.fillMaxSize()) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(SfCream, SfBg2)))
+    ) {
         ParentHeader(childName = selectedChild?.childName)
 
         if (isLoadingChildren) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = BrandIndigo)
+                CircularProgressIndicator(color = SfDark)
             }
             return@Column
         }
@@ -87,7 +89,7 @@ fun ParentScreen() {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Nu s-au putut încărca datele.", style = MaterialTheme.typography.bodyMedium)
                     Text(loadError!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                    Button(onClick = { retryKey++ }, colors = ButtonDefaults.buttonColors(containerColor = BrandIndigo)) {
+                    Button(onClick = { retryKey++ }, colors = ButtonDefaults.buttonColors(containerColor = SfDark)) {
                         Text("Încearcă din nou")
                     }
                 }
@@ -116,8 +118,8 @@ fun ParentScreen() {
 
         TabRow(
             selectedTabIndex = selectedTab,
-            containerColor   = MaterialTheme.colorScheme.surface,
-            contentColor     = BrandIndigo
+            containerColor   = Color.White,
+            contentColor     = SfDark
         ) {
             listOf("🔔 Alerte", "⚙️ Control", "🧠 Bunăstare", "📊 Rapoarte", "👨‍👧 Familie", "💬 Suport")
                 .forEachIndexed { i, label ->
@@ -165,14 +167,14 @@ private fun ParentHeader(childName: String?) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Brush.horizontalGradient(listOf(Color(0xFF5C6BC0), Color(0xFF3F8EFC))))
+            .background(SfMid)
             .padding(horizontal = 24.dp, vertical = 24.dp)
     ) {
         Column {
             Text(
                 "Panou Părinte",
                 style        = MaterialTheme.typography.titleSmall,
-                color        = Color.White.copy(alpha = 0.75f),
+                color        = SfCream.copy(alpha = 0.65f),
                 letterSpacing = 1.sp
             )
             if (childName != null) {
@@ -181,7 +183,7 @@ private fun ParentHeader(childName: String?) {
                     childName,
                     style      = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    color      = Color.White
+                    color      = SfCream
                 )
             }
         }
@@ -295,7 +297,7 @@ private fun NotificationsTab(familyId: String, childId: String, onUnreadCount: (
         // ── Lista ─────────────────────────────────────────────────────────────
         if (isLoading) {
             Box(Modifier.fillMaxWidth().padding(top = 48.dp), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = BrandIndigo)
+                CircularProgressIndicator(color = SfDark)
             }
         } else if (alerts.isEmpty()) {
             Box(Modifier.fillMaxWidth().padding(top = 56.dp), contentAlignment = Alignment.Center) {
@@ -340,7 +342,7 @@ private fun ExpandableAlertCard(alert: Map<String, Any>) {
             .joinToString(", ") { categoryLabel(it) }
 
     val accentColor = when {
-        isWellbeing                                -> BrandIndigo
+        isWellbeing                                -> SfDark
         typeRaw == "vpn_stopped"                   -> MaterialTheme.colorScheme.error
         concernLevel in listOf("CRITICAL", "HIGH") -> MaterialTheme.colorScheme.error
         concernLevel == "MEDIUM"                   -> StatusAmber
@@ -392,7 +394,7 @@ private fun ExpandableAlertCard(alert: Map<String, Any>) {
                     Text(
                         if (expanded) "▲" else "▼",
                         style = MaterialTheme.typography.labelSmall,
-                        color = BrandIndigo
+                        color = SfDark
                     )
                 }
             }
@@ -469,7 +471,7 @@ private fun ControlTab(familyId: String, child: ChildInfo) {
     ) {
         if (isLoading) {
             Box(Modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = BrandIndigo)
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = SfDark)
             }
             return@Column
         }
@@ -528,8 +530,9 @@ private fun ControlTab(familyId: String, child: ChildInfo) {
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape    = RoundedCornerShape(14.dp),
             colors   = ButtonDefaults.buttonColors(
-                containerColor = BrandIndigo,
-                disabledContainerColor = BrandIndigo.copy(0.5f)
+                containerColor = SfDark,
+                contentColor   = SfCream,
+                disabledContainerColor = SfDark.copy(0.5f)
             )
         ) {
             if (isSaving)
@@ -582,7 +585,7 @@ private fun WellbeingTab(familyId: String, childId: String) {
     ) {
         if (isLoading) {
             Box(Modifier.fillMaxWidth().padding(top = 48.dp), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = BrandIndigo)
+                CircularProgressIndicator(color = SfDark)
             }
         } else if (profile == null) {
             Box(Modifier.fillMaxWidth().padding(top = 56.dp), contentAlignment = Alignment.Center) {
@@ -631,7 +634,7 @@ private fun ReportsTab(familyId: String, childId: String) {
 
         if (isLoading) {
             Box(Modifier.fillMaxWidth().padding(top = 48.dp), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = BrandIndigo)
+                CircularProgressIndicator(color = SfDark)
             }
         } else if (reports.isEmpty()) {
             Box(Modifier.fillMaxWidth().padding(top = 56.dp), contentAlignment = Alignment.Center) {
@@ -742,7 +745,7 @@ private fun ModernReportCard(report: Map<String, Any>) {
                                 "Sugestie AI",
                                 style      = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.SemiBold,
-                                color      = BrandIndigo
+                                color      = SfDark
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(suggestion, style = MaterialTheme.typography.bodySmall)
@@ -754,7 +757,7 @@ private fun ModernReportCard(report: Map<String, Any>) {
                 Text(
                     if (expanded) "▲ Restrânge" else "▼ Citește tot",
                     style    = MaterialTheme.typography.labelSmall,
-                    color    = BrandIndigo,
+                    color    = SfDark,
                     modifier = Modifier.align(Alignment.End)
                 )
             }
@@ -827,7 +830,7 @@ private fun ChildControlCard(familyId: String, child: ChildInfo) {
                         checked         = settings.appEnabled,
                         onCheckedChange = { save(settings.copy(appEnabled = it)) },
                         enabled         = !isSaving,
-                        colors          = SwitchDefaults.colors(checkedTrackColor = BrandIndigo)
+                        colors          = SwitchDefaults.colors(checkedTrackColor = SfDark)
                     )
                 }
 
@@ -850,7 +853,7 @@ private fun ChildControlCard(familyId: String, child: ChildInfo) {
                             save(settings.copy(lockEnabled = enabled, lockCode = newCode))
                         },
                         enabled = !isSaving,
-                        colors  = SwitchDefaults.colors(checkedTrackColor = BrandIndigo)
+                        colors  = SwitchDefaults.colors(checkedTrackColor = SfDark)
                     )
                 }
 
@@ -860,9 +863,8 @@ private fun ChildControlCard(familyId: String, child: ChildInfo) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape    = RoundedCornerShape(14.dp),
-                        colors   = CardDefaults.cardColors(
-                            containerColor = BrandIndigo.copy(alpha = 0.10f)
-                        )
+                        colors   = CardDefaults.cardColors(containerColor = SfBg2),
+                        border   = BorderStroke(1.dp, SfBorder)
                     ) {
                         Column(
                             modifier = Modifier.padding(16.dp).fillMaxWidth(),
@@ -872,7 +874,7 @@ private fun ChildControlCard(familyId: String, child: ChildInfo) {
                             Text(
                                 "Cod de deblocare",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = BrandIndigo
+                                color = SfGray
                             )
                             Text(
                                 settings.lockCode,
@@ -881,7 +883,7 @@ private fun ChildControlCard(familyId: String, child: ChildInfo) {
                                     letterSpacing = 8.sp
                                 ),
                                 fontWeight = FontWeight.Bold,
-                                color      = BrandIndigo
+                                color      = SfDark
                             )
                             Text(
                                 "Spune-i copilului acest cod pentru a debloca aplicația.",
@@ -1053,8 +1055,8 @@ private fun FamilieTab(
             Text("Familia mea", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Button(
                 onClick        = { showAddDialog = true },
-                shape          = RoundedCornerShape(10.dp),
-                colors         = ButtonDefaults.buttonColors(containerColor = BrandIndigo),
+                shape          = RoundedCornerShape(28.dp),
+                colors         = ButtonDefaults.buttonColors(containerColor = SfDark, contentColor = SfCream),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Text("+ Adaugă copil", style = MaterialTheme.typography.labelSmall)
@@ -1114,7 +1116,7 @@ private fun FamilieTab(
                                     modifier = Modifier
                                         .size(38.dp)
                                         .clip(CircleShape)
-                                        .background(BrandIndigo.copy(alpha = 0.12f)),
+                                        .background(SfDark.copy(alpha = 0.12f)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text("👤", fontSize = 18.sp)
@@ -1198,7 +1200,7 @@ private fun SupportTab(familyId: String, childId: String) {
                             onClick  = { selectedCategory = cat },
                             label    = { Text(cat, style = MaterialTheme.typography.labelSmall) },
                             colors   = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = BrandIndigo,
+                                selectedContainerColor = SfDark,
                                 selectedLabelColor     = Color.White
                             )
                         )
@@ -1257,7 +1259,7 @@ private fun SupportTab(familyId: String, childId: String) {
             enabled  = !isSending && message.isNotBlank(),
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape    = RoundedCornerShape(14.dp),
-            colors   = ButtonDefaults.buttonColors(containerColor = BrandIndigo)
+            colors   = ButtonDefaults.buttonColors(containerColor = SfDark)
         ) {
             if (isSending)
                 CircularProgressIndicator(modifier = Modifier.size(22.dp), color = Color.White, strokeWidth = 2.dp)
@@ -1307,7 +1309,7 @@ private fun FeatureTogglesCard(
                 ) {
                     Box(
                         Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
-                            .background(BrandIndigo.copy(0.12f)),
+                            .background(SfDark.copy(0.12f)),
                         contentAlignment = Alignment.Center
                     ) { Text("⚙️", fontSize = 18.sp) }
                     Column {
@@ -1385,7 +1387,7 @@ private fun ToggleRow(
         Switch(
             checked         = checked,
             onCheckedChange = onToggle,
-            colors          = SwitchDefaults.colors(checkedTrackColor = BrandIndigo)
+            colors          = SwitchDefaults.colors(checkedTrackColor = SfDark)
         )
     }
 }
@@ -1457,7 +1459,7 @@ private fun ThrottleAdvancedPanel(
                             "${settings.burstSizeKb} KB",
                             style      = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Bold,
-                            color      = BrandIndigo
+                            color      = SfDark
                         )
                     }
                     Slider(
@@ -1465,7 +1467,7 @@ private fun ThrottleAdvancedPanel(
                         onValueChange = { onSettingsChange(settings.copy(burstSizeKb = it.roundToInt())) },
                         valueRange    = 16f..256f,
                         steps         = 14,
-                        colors        = SliderDefaults.colors(thumbColor = BrandIndigo, activeTrackColor = BrandIndigo)
+                        colors        = SliderDefaults.colors(thumbColor = SfDark, activeTrackColor = SfDark)
                     )
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("16 KB (agresiv)", style = MaterialTheme.typography.labelSmall,
@@ -1482,7 +1484,7 @@ private fun ThrottleAdvancedPanel(
                             "${settings.pauseDurationMs / 1000}s",
                             style      = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Bold,
-                            color      = BrandIndigo
+                            color      = SfDark
                         )
                     }
                     Slider(
@@ -1490,7 +1492,7 @@ private fun ThrottleAdvancedPanel(
                         onValueChange = { onSettingsChange(settings.copy(pauseDurationMs = (it * 1000).toLong())) },
                         valueRange    = 1f..10f,
                         steps         = 8,
-                        colors        = SliderDefaults.colors(thumbColor = BrandIndigo, activeTrackColor = BrandIndigo)
+                        colors        = SliderDefaults.colors(thumbColor = SfDark, activeTrackColor = SfDark)
                     )
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("1s (blând)", style = MaterialTheme.typography.labelSmall,
