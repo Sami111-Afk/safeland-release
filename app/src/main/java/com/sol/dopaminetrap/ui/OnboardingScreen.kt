@@ -7,7 +7,9 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,15 +19,22 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sol.dopaminetrap.R
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.sol.dopaminetrap.FirebaseRepository
@@ -46,48 +55,93 @@ private fun generatePairingCode(): String =
 
 @Composable
 fun ModeSelectionScreen(onModeSelected: (DeviceMode) -> Unit) {
-    Box(modifier = Modifier.fillMaxSize().then(GradientBg)) {
+    val teal = Color(0xFF3EDCB5)
+    val blue = Color(0xFF5B8FE0)
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Brush.verticalGradient(listOf(Color(0xFFF4F7FA), Color(0xFFE8EFF8))))
+    ) {
+        // Logo + text centrate, usor deasupra centrului ecranului
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 32.dp),
-            verticalArrangement = Arrangement.Center,
+                .align(Alignment.Center)
+                .offset(y = (-48).dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                "Safeland",
-                style      = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color      = SfDark
+            Image(
+                painter            = painterResource(R.drawable.ic_safeland_logo),
+                contentDescription = null,
+                modifier           = Modifier.size(220.dp),
+                contentScale       = ContentScale.Fit
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
             Text(
-                "Cine foloseste acest telefon?",
-                style     = MaterialTheme.typography.titleMedium,
-                color     = SfGray,
-                textAlign = TextAlign.Center
+                text = buildAnnotatedString {
+                    withStyle(SpanStyle(color = SfDark, fontWeight = FontWeight.Bold)) { append("safe ") }
+                    withStyle(SpanStyle(color = teal,   fontWeight = FontWeight.Bold)) { append("land") }
+                },
+                fontSize      = 40.sp,
+                letterSpacing = 0.sp
             )
-            Spacer(Modifier.height(48.dp))
+        }
 
-            Button(
-                onClick  = { onModeSelected(DeviceMode.PARENT) },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape    = RoundedCornerShape(28.dp),
-                colors   = ButtonDefaults.buttonColors(containerColor = SfDark, contentColor = SfCream)
+        // Butoane + tagline fixate jos
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(Brush.horizontalGradient(listOf(teal, blue)))
+                    .clickable { onModeSelected(DeviceMode.PARENT) },
+                contentAlignment = Alignment.Center
             ) {
-                Text("Sunt parinte", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    "Părinte",
+                    color      = Color.White,
+                    style      = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
             }
-            Spacer(Modifier.height(16.dp))
+
+            Spacer(Modifier.height(14.dp))
+
             OutlinedButton(
                 onClick  = { onModeSelected(DeviceMode.CHILD) },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape    = RoundedCornerShape(28.dp),
-                border   = BorderStroke(1.5.dp, SfBorder),
-                colors   = ButtonDefaults.outlinedButtonColors(contentColor = SfDark)
+                border   = BorderStroke(1.5.dp, Color(0xFFD0DCE8)),
+                colors   = ButtonDefaults.outlinedButtonColors(
+                    containerColor = Color.White,
+                    contentColor   = SfDark
+                )
             ) {
-                Text("Sunt copil / Configureaza pentru copil",
-                    style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                Text("Copil", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
             }
+
+            Spacer(Modifier.height(24.dp))
+
+            Text(
+                text = buildAnnotatedString {
+                    withStyle(SpanStyle(color = SfDark)) { append("DISCONNECT ") }
+                    withStyle(SpanStyle(color = teal))   { append("TODAY.") }
+                    withStyle(SpanStyle(color = SfDark)) { append(" CONNECT ") }
+                    withStyle(SpanStyle(color = teal))   { append("TOMORROW.") }
+                },
+                fontSize      = 11.sp,
+                letterSpacing = 2.sp,
+                fontWeight    = FontWeight.Medium,
+                textAlign     = TextAlign.Center
+            )
+
+            Spacer(Modifier.height(36.dp))
         }
     }
 }
